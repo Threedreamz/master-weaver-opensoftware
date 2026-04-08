@@ -17,6 +17,7 @@ FROM base AS installer
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=pruner /app/out/full/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --no-frozen-lockfile
 
 # Stage 3: Build

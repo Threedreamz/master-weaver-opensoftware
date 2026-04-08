@@ -18,6 +18,7 @@ RUN corepack enable pnpm
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=pruner /app/out/full/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --no-frozen-lockfile
 COPY --from=pruner /app/out/full/ .
 RUN pnpm turbo build --filter=openmailer-marketing-worker
@@ -38,4 +39,4 @@ EXPOSE 4171
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:${PORT:-4171}/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["npx", "tsx", "apps/openmailer-marketing-worker/dist/server.js"]
+CMD ["node", "apps/openmailer-marketing-worker/dist/server.js"]

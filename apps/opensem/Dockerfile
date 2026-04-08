@@ -21,14 +21,15 @@ WORKDIR /app
 # Install dependencies from pruned lockfile
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=pruner /app/out/full/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --no-frozen-lockfile
 
 # Copy full source from pruned output
 COPY --from=pruner /app/out/full/ .
 
-# Create data directory and drizzle dir, initialize schema for prerendering
+# Generate SQL migration files (for runtime migration via instrumentation.ts)
 WORKDIR /app/apps/opensem
-RUN mkdir -p data drizzle && npx drizzle-kit push --force
+RUN mkdir -p data drizzle && npx drizzle-kit generate
 
 # Build the Next.js app (standalone output)
 WORKDIR /app
@@ -39,9 +40,11 @@ RUN pnpm turbo build --filter=opensem
 RUN mkdir -p /tmp/runtime-node-modules && \
     BSQL_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "better-sqlite3@*" -type d | head -1) && \
     cp -rL "$BSQL_STORE/node_modules/better-sqlite3" /tmp/runtime-node-modules/better-sqlite3 && \
-    cp -rL "$BSQL_STORE/node_modules/bindings" /tmp/runtime-node-modules/bindings && \
     BIND_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "bindings@*" -type d | head -1) && \
-    cp -rL "$BIND_STORE/node_modules/file-uri-to-path" /tmp/runtime-node-modules/file-uri-to-path
+    if [ -n "$BIND_STORE" ]; then \
+      cp -rL "$BIND_STORE/node_modules/bindings" /tmp/runtime-node-modules/bindings 2>/dev/null || true; \
+      cp -rL "$BIND_STORE/node_modules/file-uri-to-path" /tmp/runtime-node-modules/file-uri-to-path 2>/dev/null || true; \
+    fi
 
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
@@ -53,25 +56,21 @@ ENV NODE_ENV=production
 COPY --from=builder /app/apps/opensem/.next/standalone/ /app/
 COPY --from=builder /app/apps/opensem/.next/static /app/apps/opensem/.next/static
 
-# Create public dir (may not exist yet)
+# Create public dir (may not exist)
 RUN mkdir -p /app/apps/opensem/public
 
-# Copy drizzle config and DB source for runtime
+# Copy generated SQL migration files for runtime instrumentation.ts
 COPY --from=builder /app/apps/opensem/drizzle /app/apps/opensem/drizzle
-COPY --from=builder /app/apps/opensem/src/db /app/apps/opensem/src/db
-COPY --from=builder /app/apps/opensem/drizzle.config.ts /app/apps/opensem/drizzle.config.ts
 
-# Copy better-sqlite3 + deps for runtime
+# Copy better-sqlite3 native module for runtime
 COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/
 
 # Create data directory for SQLite (volume mount point on Railway)
 RUN mkdir -p /app/data
 
-# Create non-root user
+# Create non-root user and grant ownership
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
-
-# Give nextjs ownership for .next cache writes and SQLite data
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
