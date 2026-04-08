@@ -9,7 +9,7 @@ import {
   type AuthUser,
   toUserRole,
   getPermissionsForRole,
-  OPENSEO_PERMISSIONS,
+  OPENSEM_PERMISSIONS,
 } from "@opensoftware/config/rbac";
 
 const providers: Provider[] = [];
@@ -100,7 +100,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         const role = toUserRole(token.role as string);
         session.user.role = role;
-        session.user.permissions = getPermissionsForRole(OPENSEO_PERMISSIONS, role);
+        session.user.permissions = getPermissionsForRole(OPENSEM_PERMISSIONS, role);
       }
       return session;
     },
