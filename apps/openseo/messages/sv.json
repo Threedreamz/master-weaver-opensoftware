@@ -1,0 +1,5 @@
+{
+  "app": { "name": "OpenSEO", "description": "SEO-granskning och analys med öppen källkod" },
+  "seo": { "dashboard": "Översikt", "audit": "Granskning", "pagespeed": "PageSpeed", "metaTags": "Meta-taggar", "rankings": "Rankningar", "semrush": "Semrush", "runAudit": "Kör granskning", "addUrl": "Lägg till URL", "noData": "Inga data" },
+  "analytics": { "dashboard": "Analysöversikt", "events": "Händelser", "funnels": "Trattar", "attribution": "Attribution", "cohorts": "Kohorter", "performance": "Prestanda", "noData": "Inga data" }
+}

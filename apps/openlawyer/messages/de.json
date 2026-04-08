@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "OpenLawyer",
+    "description": "Open-Source Projektmanagement für Recht"
+  },
+  "legal": {
+    "dashboard": "Dashboard",
+    "projects": "Projekte",
+    "documents": "Dokumente",
+    "templates": "Vorlagen",
+    "monitoring": "Überwachung",
+    "reviewers": "Prüfer",
+    "noProjects": "Keine Projekte",
+    "noDocuments": "Keine Dokumente",
+    "noTemplates": "Keine Vorlagen",
+    "noMonitoring": "Keine Überwachungsregeln",
+    "noReviewers": "Keine Prüfer",
+    "addProject": "Projekt hinzufügen"
+  }
+}

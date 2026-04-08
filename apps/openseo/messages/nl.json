@@ -1,0 +1,5 @@
+{
+  "app": { "name": "OpenSEO", "description": "Open-source SEO-audit en analytics" },
+  "seo": { "dashboard": "Dashboard", "audit": "Audit", "pagespeed": "PageSpeed", "metaTags": "Meta Tags", "rankings": "Rankings", "semrush": "Semrush", "runAudit": "Audit uitvoeren", "addUrl": "URL toevoegen", "noData": "Geen gegevens" },
+  "analytics": { "dashboard": "Analytics dashboard", "events": "Gebeurtenissen", "funnels": "Trechters", "attribution": "Attributie", "cohorts": "Cohorten", "performance": "Prestaties", "noData": "Geen gegevens" }
+}

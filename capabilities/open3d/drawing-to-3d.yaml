@@ -1,0 +1,50 @@
+name: drawing-to-3d
+version: "1.0"
+description: Convert 2D technical drawing to 3D model via AI vision analysis + OpenSCAD generation
+input:
+  type: object
+  properties:
+    drawingPath:
+      type: string
+      description: Path to the uploaded drawing file (PNG, JPG, PDF, SVG, BMP)
+    aiBackend:
+      type: string
+      enum: [claude, ollama, lmstudio]
+      default: ollama
+      description: AI backend for vision analysis and code generation
+    userFeedback:
+      type: string
+      default: ""
+      description: Correction feedback from user for iterative refinement
+    iterationId:
+      type: string
+      description: ID for tracking correction iterations
+  required: [drawingPath]
+output:
+  type: object
+  properties:
+    success:
+      type: boolean
+    extractedData:
+      type: object
+      description: Structured analysis of the drawing (dimensions, features, tolerances)
+    openscadCode:
+      type: string
+      description: Generated OpenSCAD source code
+    stlPath:
+      type: string
+      description: Path to rendered STL file
+    previewPath:
+      type: string
+      description: Path to rendered PNG preview
+    validationScore:
+      type: number
+      description: AI validation match score (0-1)
+    validationResult:
+      type: object
+    duration:
+      type: number
+    renderError:
+      type: string
+timeout: 300000
+tags: [open3d, ai, drawing, 2d-to-3d, openscad, vision, technical-drawing]

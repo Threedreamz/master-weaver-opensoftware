@@ -1,0 +1,56 @@
+name: dfm-analysis
+version: "1.0"
+description: DFM (Design for Manufacturability) analysis for injection molding — wall thickness, draft angle, undercuts, sharp edges, gate feasibility
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+      description: Path to STEP, IGES, or STL file
+    inputFormat:
+      type: string
+      enum: [step, stp, iges, stl]
+    checks:
+      type: array
+      items:
+        type: string
+        enum: [wall-thickness, draft-angle, undercut, sharp-edge, gate-feasibility]
+      description: Which checks to run (default all)
+    material:
+      type: string
+      default: ABS
+      description: Injection molding material (affects thresholds)
+    moldDirection:
+      type: array
+      items:
+        type: number
+      default: [0, 0, 1]
+      description: Mold pull direction vector [x, y, z]
+    minWallThickness:
+      type: number
+      default: 0.8
+      description: Minimum acceptable wall thickness in mm
+    minDraftAngle:
+      type: number
+      default: 1.0
+      description: Minimum acceptable draft angle in degrees
+  required: [inputPath]
+output:
+  type: object
+  properties:
+    success:
+      type: boolean
+    issues:
+      type: array
+    summary:
+      type: object
+    wallThickness:
+      type: object
+    draftAngle:
+      type: object
+    gateFeasibility:
+      type: object
+    duration:
+      type: number
+timeout: 300000
+tags: [open3d, dfm, injection-molding, cad, manufacturing, quality]

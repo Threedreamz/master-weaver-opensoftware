@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenLawyer", "description": "Juridisk projekthantering med öppen källkod" },
+  "legal": { "dashboard": "Översikt", "projects": "Projekt", "documents": "Dokument", "templates": "Mallar", "monitoring": "Övervakning", "reviewers": "Granskare", "noProjects": "Inga projekt", "noDocuments": "Inga dokument", "noTemplates": "Inga mallar", "noMonitoring": "Inga övervakningsregler", "noReviewers": "Inga granskare", "addProject": "Lägg till projekt" }
+}

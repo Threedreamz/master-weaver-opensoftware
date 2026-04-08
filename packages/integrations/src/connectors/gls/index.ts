@@ -1,0 +1,22 @@
+export { GlsClient } from "./client.js";
+export type {
+  GlsProduct,
+  GlsLabelFormat,
+  GlsLabelSize,
+  GlsTrackingStatus,
+  GlsAddress,
+  GlsParcel,
+  GlsServices,
+  GlsCustomsDetails,
+  GlsCustomsItem,
+  GlsShipmentRequest,
+  GlsShipmentResponse,
+  GlsParcelResponse,
+  GlsMessage,
+  GlsTrackingResponse,
+  GlsTrackingEvent,
+  GlsLabelRequest,
+  GlsParcelShop,
+  GlsParcelShopSearchRequest,
+  GlsClientConfig,
+} from "./types.js";

@@ -1,0 +1,14 @@
+{
+  "autodeskProduct": "Fusion",
+  "type": "addin",
+  "id": "f3d2scad-mcp-bridge-4176",
+  "author": "MasterWeaver",
+  "description": {
+    "short": "MCP HTTP bridge — lets Claude Code drive Fusion 360 via AI",
+    "long": "Starts a local HTTP server on port 4176 that exposes Fusion 360 operations (sketch, extrude, revolve, boolean, fillet, export) as a REST API. Pair with the fusion360-mcp TypeScript server to drive Fusion from Claude Code."
+  },
+  "version": "1.0.0",
+  "runOnStartup": true,
+  "supportedOS": "Mac|Windows",
+  "editEnabled": true
+}

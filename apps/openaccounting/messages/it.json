@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Contabilità in partita doppia open source" },
+  "accounting": { "dashboard": "Pannello", "customers": "Clienti", "invoices": "Fatture", "transactions": "Transazioni", "booking": "Registrazione", "matching": "Riconciliazione", "documents": "Documenti", "kontenplan": "Piano dei conti", "suppliers": "Fornitori", "reports": "Report", "export": "Esporta", "settings": "Impostazioni", "bwa": "BWA", "bilanz": "Bilancio", "guv": "Conto economico", "noData": "Nessun dato", "addCustomer": "Aggiungi cliente", "addSupplier": "Aggiungi fornitore", "newInvoice": "Nuova fattura", "newBooking": "Nuova registrazione", "importTransactions": "Importa transazioni", "uploadDocument": "Carica documento", "addAccount": "Aggiungi conto" }
+}

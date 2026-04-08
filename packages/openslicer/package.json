@@ -1,0 +1,25 @@
+{
+  "name": "@opensoftware/openslicer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "three": "^0.172.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "@types/three": "^0.172.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

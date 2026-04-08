@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "OpenPayroll",
+    "description": "Open-source payroll management"
+  },
+  "payroll": {
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "salaryTypes": "Salary Types",
+    "payroll": "Payroll",
+    "journal": "Journal",
+    "settings": "Settings",
+    "noData": "No data",
+    "addEmployee": "Add Employee",
+    "addSalaryType": "Add Salary Type",
+    "calculate": "Calculate Payroll",
+    "activeEmployees": "Active Employees",
+    "monthlyTotal": "Monthly Payroll Total",
+    "avgSalary": "Average Salary",
+    "nextPayroll": "Next Payroll Date"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@open3d/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4178",
+    "build": "next build",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@mw/open3d-types": "file:../../../master-weaver-master/packages/open3d-types",
+    "@mw/open3d-viewer": "file:../../../master-weaver-master/packages/open3d-viewer",
+    "@mw/open3d-converter": "file:../../../master-weaver-master/packages/open3d-converter",
+    "@mw/open3d-mesh": "file:../../../master-weaver-master/packages/open3d-mesh",
+    "@mw/open3d-slicer": "file:../../../master-weaver-master/packages/open3d-slicer",
+    "@mw/open3d-cad": "file:../../../master-weaver-master/packages/open3d-cad"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.0"
+  }
+}

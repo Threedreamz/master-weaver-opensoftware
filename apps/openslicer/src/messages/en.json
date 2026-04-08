@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "title": "OpenSlicer",
+    "description": "3D slicer for the print farm"
+  },
+  "toolbar": {
+    "upload": "Upload",
+    "undo": "Undo",
+    "redo": "Redo",
+    "resetView": "Reset View",
+    "wireframe": "Wireframe",
+    "grid": "Grid"
+  },
+  "panels": {
+    "models": "Models",
+    "analysis": "Analysis",
+    "slice": "Slice",
+    "profiles": "Profiles",
+    "history": "History"
+  },
+  "upload": {
+    "title": "Upload Model",
+    "dragDrop": "Drag file here or click to browse",
+    "formats": "STL, 3MF, OBJ, STEP",
+    "uploading": "Uploading...",
+    "analyzing": "Analyzing..."
+  },
+  "analysis": {
+    "title": "Mesh Analysis",
+    "triangles": "Triangles",
+    "vertices": "Vertices",
+    "volume": "Volume",
+    "surfaceArea": "Surface Area",
+    "dimensions": "Dimensions",
+    "manifold": "Manifold",
+    "feasibility": "Feasibility",
+    "printable": "Printable",
+    "printableWithIssues": "Printable with Issues",
+    "needsRework": "Needs Rework",
+    "needsRedesign": "Needs Redesign",
+    "noIssues": "No Issues",
+    "score": "Score"
+  },
+  "slice": {
+    "title": "Slice Settings",
+    "profile": "Profile",
+    "selectProfile": "Select profile...",
+    "layerHeight": "Layer Height",
+    "infill": "Infill",
+    "supports": "Supports",
+    "sliceButton": "Slice",
+    "slicing": "Slicing...",
+    "completed": "Slice Complete",
+    "failed": "Slice Failed",
+    "download": "Download G-Code",
+    "estimatedTime": "Estimated Print Time",
+    "estimatedMaterial": "Estimated Material"
+  },
+  "profiles": {
+    "title": "Slicer Profiles",
+    "add": "Add Profile",
+    "noProfiles": "No profiles available",
+    "technology": "Technology",
+    "engine": "Slicer Engine"
+  },
+  "history": {
+    "title": "Slice History",
+    "noHistory": "No slices yet",
+    "status": "Status",
+    "model": "Model",
+    "time": "Time"
+  },
+  "viewer": {
+    "noModel": "No model loaded",
+    "loadModel": "Upload a model to get started"
+  },
+  "status": {
+    "ready": "Ready",
+    "analyzing": "Analyzing...",
+    "slicing": "Slicing..."
+  },
+  "auth": {
+    "loginTitle": "Sign in to OpenSlicer",
+    "loginDescription": "Sign in to slice 3D models",
+    "login": "Sign In"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "slice": "Slice",
+    "litophane": "Litophane",
+    "sla": "SLA",
+    "profiles": "Profiles",
+    "openfarm": "OpenFarm"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "fdm": "FDM",
+    "sla": "SLA",
+    "sls": "SLS"
+  }
+}

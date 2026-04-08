@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "OpenInventory",
+    "description": "Open-Source Warenwirtschaft"
+  },
+  "inventory": {
+    "dashboard": "Dashboard",
+    "articles": "Artikel",
+    "categories": "Kategorien",
+    "suppliers": "Lieferanten",
+    "orders": "Bestellungen",
+    "goodsReceipt": "Wareneingang",
+    "warehouse": "Lager",
+    "production": "Produktion",
+    "settings": "Einstellungen",
+    "noData": "Keine Daten",
+    "addArticle": "Artikel hinzufuegen",
+    "addCategory": "Kategorie hinzufuegen",
+    "addSupplier": "Lieferant hinzufuegen",
+    "newOrder": "Neue Bestellung",
+    "newProduction": "Neuer Produktionsauftrag"
+  }
+}

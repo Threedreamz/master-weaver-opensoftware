@@ -1,0 +1,34 @@
+name: analyze-mesh
+version: "1.0"
+description: Analyze 3D mesh properties (volume, area, manifold check, wall thickness)
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    checks:
+      type: array
+      items:
+        type: string
+        enum: [volume, surface-area, manifold, wall-thickness, overhang, printability]
+      default: [volume, surface-area, manifold]
+  required: [inputPath]
+output:
+  type: object
+  properties:
+    volume:
+      type: number
+    surfaceArea:
+      type: number
+    isManifold:
+      type: boolean
+    printabilityScore:
+      type: number
+    warnings:
+      type: array
+      items:
+        type: string
+    success:
+      type: boolean
+timeout: 60000
+tags: [analysis, mesh, quality, printability]

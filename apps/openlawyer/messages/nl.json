@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenLawyer", "description": "Open-source juridisch projectbeheer" },
+  "legal": { "dashboard": "Dashboard", "projects": "Projecten", "documents": "Documenten", "templates": "Sjablonen", "monitoring": "Monitoring", "reviewers": "Beoordelaars", "noProjects": "Geen projecten", "noDocuments": "Geen documenten", "noTemplates": "Geen sjablonen", "noMonitoring": "Geen monitoringregels", "noReviewers": "Geen beoordelaars", "addProject": "Project toevoegen" }
+}

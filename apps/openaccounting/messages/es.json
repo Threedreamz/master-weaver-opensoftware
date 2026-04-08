@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Contabilidad de partida doble de código abierto" },
+  "accounting": { "dashboard": "Panel", "customers": "Clientes", "invoices": "Facturas", "transactions": "Transacciones", "booking": "Asiento", "matching": "Conciliación", "documents": "Documentos", "kontenplan": "Plan de cuentas", "suppliers": "Proveedores", "reports": "Informes", "export": "Exportar", "settings": "Configuración", "bwa": "BWA", "bilanz": "Balance", "guv": "Cuenta de resultados", "noData": "Sin datos", "addCustomer": "Añadir cliente", "addSupplier": "Añadir proveedor", "newInvoice": "Nueva factura", "newBooking": "Nuevo asiento", "importTransactions": "Importar transacciones", "uploadDocument": "Subir documento", "addAccount": "Añadir cuenta" }
+}

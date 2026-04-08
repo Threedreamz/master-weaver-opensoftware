@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Open-source podvojné účetnictví" },
+  "accounting": { "dashboard": "Přehled", "customers": "Zákazníci", "invoices": "Faktury", "transactions": "Transakce", "booking": "Účtování", "matching": "Párování", "documents": "Dokumenty", "kontenplan": "Účtová osnova", "suppliers": "Dodavatelé", "reports": "Výkazy", "export": "Export", "settings": "Nastavení", "bwa": "BWA", "bilanz": "Rozvaha", "guv": "Výkaz zisku a ztráty", "noData": "Žádná data", "addCustomer": "Přidat zákazníka", "addSupplier": "Přidat dodavatele", "newInvoice": "Nová faktura", "newBooking": "Nové účtování", "importTransactions": "Importovat transakce", "uploadDocument": "Nahrát dokument", "addAccount": "Přidat účet" }
+}

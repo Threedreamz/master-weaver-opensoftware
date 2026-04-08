@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "OpenAccounting",
+    "description": "Open-Source Doppelte Buchhaltung"
+  },
+  "accounting": {
+    "dashboard": "Dashboard",
+    "customers": "Kunden",
+    "invoices": "Rechnungen",
+    "transactions": "Transaktionen",
+    "booking": "Buchung",
+    "matching": "Zuordnung",
+    "documents": "Belege",
+    "kontenplan": "Kontenplan",
+    "suppliers": "Lieferanten",
+    "reports": "Berichte",
+    "export": "Export",
+    "settings": "Einstellungen",
+    "bwa": "BWA",
+    "bilanz": "Bilanz",
+    "guv": "GuV",
+    "noData": "Keine Daten",
+    "addCustomer": "Kunde hinzufügen",
+    "addSupplier": "Lieferant hinzufügen",
+    "newInvoice": "Neue Rechnung",
+    "newBooking": "Neue Buchung",
+    "importTransactions": "Transaktionen importieren",
+    "uploadDocument": "Beleg hochladen",
+    "addAccount": "Konto hinzufügen"
+  }
+}

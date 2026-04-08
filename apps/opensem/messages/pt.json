@@ -1,0 +1,5 @@
+{
+  "app": { "name": "OpenSEM", "description": "Marketing de mecanismos de busca de código aberto" },
+  "seo": { "dashboard": "Painel", "audit": "Auditoria", "pagespeed": "PageSpeed", "metaTags": "Meta Tags", "rankings": "Posições", "semrush": "Semrush", "runAudit": "Executar auditoria", "addUrl": "Adicionar URL", "noData": "Sem dados" },
+  "analytics": { "dashboard": "Painel de análise", "events": "Eventos", "funnels": "Funis", "attribution": "Atribuição", "cohorts": "Coortes", "performance": "Desempenho", "noData": "Sem dados" }
+}

@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "title": "OpenSlicer",
+    "description": "3D-Slicer für die Druckfarm"
+  },
+  "toolbar": {
+    "upload": "Hochladen",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "resetView": "Ansicht zurücksetzen",
+    "wireframe": "Drahtgitter",
+    "grid": "Raster"
+  },
+  "panels": {
+    "models": "Modelle",
+    "analysis": "Analyse",
+    "slice": "Slicen",
+    "profiles": "Profile",
+    "history": "Verlauf"
+  },
+  "upload": {
+    "title": "Modell hochladen",
+    "dragDrop": "Datei hierher ziehen oder klicken",
+    "formats": "STL, 3MF, OBJ, STEP",
+    "uploading": "Wird hochgeladen...",
+    "analyzing": "Wird analysiert..."
+  },
+  "analysis": {
+    "title": "Mesh-Analyse",
+    "triangles": "Dreiecke",
+    "vertices": "Vertices",
+    "volume": "Volumen",
+    "surfaceArea": "Oberfläche",
+    "dimensions": "Abmessungen",
+    "manifold": "Wasserdicht",
+    "feasibility": "Machbarkeit",
+    "printable": "Druckbereit",
+    "printableWithIssues": "Druckbar mit Problemen",
+    "needsRework": "Nachbearbeitung nötig",
+    "needsRedesign": "Neuzeichnung nötig",
+    "noIssues": "Keine Probleme",
+    "score": "Bewertung"
+  },
+  "slice": {
+    "title": "Slice-Einstellungen",
+    "profile": "Profil",
+    "selectProfile": "Profil wählen...",
+    "layerHeight": "Schichthöhe",
+    "infill": "Füllung",
+    "supports": "Stützen",
+    "sliceButton": "Slicen",
+    "slicing": "Wird gesliced...",
+    "completed": "Slice abgeschlossen",
+    "failed": "Slice fehlgeschlagen",
+    "download": "G-Code herunterladen",
+    "estimatedTime": "Geschätzte Druckzeit",
+    "estimatedMaterial": "Geschätztes Material"
+  },
+  "profiles": {
+    "title": "Slicer-Profile",
+    "add": "Profil hinzufügen",
+    "noProfiles": "Keine Profile vorhanden",
+    "technology": "Technologie",
+    "engine": "Slicer-Engine"
+  },
+  "history": {
+    "title": "Slice-Verlauf",
+    "noHistory": "Noch keine Slices",
+    "status": "Status",
+    "model": "Modell",
+    "time": "Zeit"
+  },
+  "viewer": {
+    "noModel": "Kein Modell geladen",
+    "loadModel": "Modell hochladen um zu starten"
+  },
+  "status": {
+    "ready": "Bereit",
+    "analyzing": "Analysiert...",
+    "slicing": "Sliced..."
+  },
+  "auth": {
+    "loginTitle": "Bei OpenSlicer anmelden",
+    "loginDescription": "Melden Sie sich an, um 3D-Modelle zu slicen",
+    "login": "Anmelden"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "slice": "Slicen",
+    "litophane": "Lithophane",
+    "sla": "SLA",
+    "profiles": "Profile",
+    "openfarm": "OpenFarm"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "fdm": "FDM",
+    "sla": "SLA",
+    "sls": "SLS"
+  }
+}

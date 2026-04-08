@@ -1,0 +1,48 @@
+{
+  "name": "master-weaver-opensoftware-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source admin tools monorepo: OpenFlow, OpenMailer, OpenAccounting, OpenLawyer, OpenSEM",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:flow": "turbo dev --filter=openflow",
+    "dev:mailer": "turbo dev --filter=openmailer",
+    "dev:accounting": "turbo dev --filter=openaccounting",
+    "dev:lawyer": "turbo dev --filter=openlawyer",
+    "dev:sem": "turbo dev --filter=opensem",
+    "dev:openbounty": "turbo dev --filter=openbounty",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean && rm -rf node_modules",
+    "prepare": "husky",
+    "db:push": "turbo db:push",
+    "db:generate": "turbo db:generate",
+    "db:seed": "tsx packages/db/src/seed/index.ts",
+    "db:seed:mustermann": "tsx packages/db/src/seed/index.ts"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.2.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.5.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "isomorphic-dompurify": "^3.3.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}

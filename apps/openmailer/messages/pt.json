@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenMailer", "description": "Cliente de e-mail de código aberto" },
+  "mail": { "inbox": "Caixa de entrada", "sent": "Enviados", "drafts": "Rascunhos", "trash": "Lixeira", "settings": "Configurações", "compose": "Escrever", "noEmails": "Sem e-mails", "addAccount": "Adicionar conta" }
+}

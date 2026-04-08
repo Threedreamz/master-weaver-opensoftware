@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "OpenInventory",
+    "description": "Open-source inventory management"
+  },
+  "inventory": {
+    "dashboard": "Dashboard",
+    "articles": "Articles",
+    "categories": "Categories",
+    "suppliers": "Suppliers",
+    "orders": "Purchase Orders",
+    "goodsReceipt": "Goods Receipt",
+    "warehouse": "Warehouse",
+    "production": "Production",
+    "settings": "Settings",
+    "noData": "No data",
+    "addArticle": "Add Article",
+    "addCategory": "Add Category",
+    "addSupplier": "Add Supplier",
+    "newOrder": "New Order",
+    "newProduction": "New Production Order"
+  }
+}

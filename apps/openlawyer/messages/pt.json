@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenLawyer", "description": "Gestão de projetos jurídicos de código aberto" },
+  "legal": { "dashboard": "Painel", "projects": "Projetos", "documents": "Documentos", "templates": "Modelos", "monitoring": "Monitoramento", "reviewers": "Revisores", "noProjects": "Sem projetos", "noDocuments": "Sem documentos", "noTemplates": "Sem modelos", "noMonitoring": "Sem regras de monitoramento", "noReviewers": "Sem revisores", "addProject": "Adicionar projeto" }
+}

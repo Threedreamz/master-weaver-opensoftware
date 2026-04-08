@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "OpenBounty",
+    "description": "Time, Performance & Bounty System"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "zeiterfassung": "Time Tracking",
+    "projekte": "Projects",
+    "meetings": "Meetings",
+    "leistungen": "Performance",
+    "compliance": "Compliance",
+    "arbeitsplatz": "Workstation",
+    "einstellungen": "Settings"
+  }
+}

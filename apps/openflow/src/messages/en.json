@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "title": "OpenFlow — Visual Form Flow Builder",
+    "description": "Create and manage dynamic multi-step forms"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "loginTitle": "OpenFlow Admin",
+    "loginDescription": "Sign in to manage your flows"
+  },
+  "admin": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "flows": "Flows",
+      "submissions": "Submissions",
+      "settings": "Settings",
+      "folders": {
+        "content": "Content",
+        "analytics": "Analytics"
+      }
+    },
+    "flows": {
+      "title": "Flow Management",
+      "new": "New Flow",
+      "empty": "No flows created yet",
+      "emptyDescription": "Create your first visual form flow",
+      "status": {
+        "draft": "Draft",
+        "published": "Published",
+        "archived": "Archived"
+      }
+    },
+    "submissions": {
+      "title": "Submissions",
+      "empty": "No submissions yet"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "totalFlows": "Total Flows",
+      "totalSubmissions": "Total Submissions",
+      "completionRate": "Completion Rate",
+      "activeFlows": "Active Flows"
+    }
+  }
+}

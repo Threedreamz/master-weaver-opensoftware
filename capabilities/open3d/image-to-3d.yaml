@@ -1,0 +1,39 @@
+name: image-to-3d
+version: "1.0"
+description: Generate 3D mesh from single image using TripoSR
+input:
+  type: object
+  properties:
+    imagePath:
+      type: string
+    model:
+      type: string
+      enum: [triposr, instantmesh, openlrm]
+      default: triposr
+    quality:
+      type: string
+      enum: [draft, medium, high]
+      default: medium
+    outputFormat:
+      type: string
+      enum: [glb, obj, stl]
+      default: glb
+    removeBackground:
+      type: boolean
+      default: true
+  required: [imagePath]
+output:
+  type: object
+  properties:
+    meshPath:
+      type: string
+    vertexCount:
+      type: integer
+    textured:
+      type: boolean
+    duration:
+      type: number
+    success:
+      type: boolean
+timeout: 120000
+tags: [open3d, ai, image-to-3d, triposr, generation]

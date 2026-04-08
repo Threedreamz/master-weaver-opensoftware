@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenLawyer", "description": "Open-source správa právních projektů" },
+  "legal": { "dashboard": "Přehled", "projects": "Projekty", "documents": "Dokumenty", "templates": "Šablony", "monitoring": "Monitoring", "reviewers": "Recenzenti", "noProjects": "Žádné projekty", "noDocuments": "Žádné dokumenty", "noTemplates": "Žádné šablony", "noMonitoring": "Žádná pravidla monitoringu", "noReviewers": "Žádní recenzenti", "addProject": "Přidat projekt" }
+}

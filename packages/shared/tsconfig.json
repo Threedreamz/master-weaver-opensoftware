@@ -1,0 +1,13 @@
+{
+  "extends": "@opensoftware/tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "declaration": true,
+    "outDir": "dist",
+    "incremental": false,
+    "composite": false,
+    "types": ["react"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

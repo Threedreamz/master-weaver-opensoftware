@@ -1,0 +1,20 @@
+export { CookiebotClient } from "./client.js";
+export type {
+  CookiebotClientConfig,
+  CookieCategory,
+  CookieDeclaration,
+  CookieCategoryGroup,
+  CookieDetails,
+  CookiebotScan,
+  ScanStatus,
+  ScanError,
+  ConsentStatistics,
+  ConsentBreakdown,
+  ConsentStatsParams,
+  CategoryConsentStat,
+  GeoConsentStat,
+  DailyConsentStat,
+  RequestScanParams,
+  CookiebotListResponse,
+  CookiebotConsentType,
+} from "./types.js";

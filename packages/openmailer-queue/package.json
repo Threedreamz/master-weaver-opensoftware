@@ -1,0 +1,27 @@
+{
+  "name": "@opensoftware/openmailer-queue",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'"
+  },
+  "dependencies": {
+    "bullmq": "^5.52.0",
+    "@opensoftware/openmailer-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

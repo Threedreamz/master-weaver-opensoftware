@@ -1,0 +1,32 @@
+{
+  "name": "@open3d/studio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4172",
+    "build": "next build",
+    "start": "next start -p 4172",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.172.0",
+    "@react-three/fiber": "^9.0.0",
+    "@react-three/drei": "^10.0.0",
+    "@mw/open3d-types": "file:../../../master-weaver-master/packages/open3d-types",
+    "@mw/open3d-converter": "file:../../../master-weaver-master/packages/open3d-converter",
+    "@mw/open3d-mesh": "file:../../../master-weaver-master/packages/open3d-mesh",
+    "@mw/open3d-viewer": "file:../../../master-weaver-master/packages/open3d-viewer",
+    "@mw/open3d-slicer": "file:../../../master-weaver-master/packages/open3d-slicer",
+    "@mw/open3d-cad": "file:../../../master-weaver-master/packages/open3d-cad"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.172.0",
+    "typescript": "^5.8.0"
+  }
+}

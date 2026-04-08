@@ -1,0 +1,93 @@
+{
+  "app": {
+    "name": "OpenSEM",
+    "description": "Open-Source Search Engine Marketing"
+  },
+  "seo": {
+    "dashboard": "Dashboard",
+    "audit": "Audit",
+    "pagespeed": "Seitengeschwindigkeit",
+    "metaTags": "Meta-Tags",
+    "rankings": "Rankings",
+    "semrush": "Semrush",
+    "runAudit": "Audit starten",
+    "addUrl": "URL hinzufügen",
+    "noData": "Keine Daten"
+  },
+  "analytics": {
+    "dashboard": "Analytik-Dashboard",
+    "events": "Ereignisse",
+    "funnels": "Trichter",
+    "attribution": "Attribution",
+    "cohorts": "Kohorten",
+    "performance": "Leistung",
+    "noData": "Keine Daten"
+  },
+  "paid": {
+    "dashboard": "SERP Dominance",
+    "dashboardDescription": "Kanalübergreifende Suchperformance",
+    "keywordBridge": "Keyword-Brücke",
+    "keywordBridgeDescription": "SEO zu Paid Empfehlungen",
+    "negativeKeywords": "Negative Keywords",
+    "negativeKeywordsDescription": "Automatische Vorschläge",
+    "cannibalization": "Kannibalisierung",
+    "cannibalizationDescription": "SEO/SEA Überlappungsmonitor",
+    "searchTerms": "Suchbegriffe",
+    "searchTermsDescription": "Abfrageanalyse",
+    "qualityScore": "Quality Score",
+    "qualityScoreDescription": "QF-Treiber pro Keyword",
+    "assetLab": "Asset Lab",
+    "assetLabDescription": "Anzeigen-Performance",
+    "dayparting": "Dayparting",
+    "daypartingDescription": "CVR nach Uhrzeit",
+    "automation": "Automatisierung",
+    "automationDescription": "IF/THEN Regeln"
+  },
+  "intelligence": {
+    "competitors": "Wettbewerber",
+    "competitorsDescription": "SEMrush Wettbewerbsdaten",
+    "budget": "Budget-Intelligenz",
+    "budgetDescription": "Mitbewerber-Budgets",
+    "landingPageScore": "Landing Page Score",
+    "landingPageScoreDescription": "Quality Score × On-Page SEO",
+    "keywordGaps": "Keyword-Lücken",
+    "keywordGapsDescription": "Unbediente Keywords",
+    "geo": "Geo-Intelligenz",
+    "geoDescription": "Regionale Bid-Modifier",
+    "deviceStrategy": "Gerätestrategie",
+    "deviceStrategyDescription": "Mobile vs. Desktop",
+    "recommendations": "Empfehlungen",
+    "recommendationsDescription": "KI-gestützte Vorschläge"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "integrations": "Integrationen",
+    "googleAds": "Google Ads",
+    "googleAdsConnect": "Google Ads verbinden",
+    "googleAdsConnected": "Google Ads verbunden",
+    "semrush": "SEMrush",
+    "semrushApiKey": "SEMrush API-Schlüssel",
+    "campaignMapping": "Kampagnen-Zuordnung",
+    "campaignMappingDescription": "Google Ads Konten mit SEMrush Domains verknüpfen",
+    "syncNow": "Jetzt synchronisieren",
+    "lastSync": "Letzte Synchronisation"
+  },
+  "kpi": {
+    "serpDominance": "SERP Dominance Score",
+    "organicKeywords": "Organische Keywords (Top 10)",
+    "paidKeywords": "Bezahlte Keywords aktiv",
+    "keywordOverlap": "Keyword-Überlappung"
+  },
+  "status": {
+    "critical": "Kritisch",
+    "warning": "Warnung",
+    "ok": "OK",
+    "noActionNeeded": "Kein Handlungsbedarf",
+    "pausePaid": "Paid pausieren",
+    "reviewSpend": "Ausgaben prüfen"
+  },
+  "empty": {
+    "connectFirst": "Verbinden Sie Google Ads und SEMrush in den Einstellungen, um Daten zu laden.",
+    "noData": "Keine Daten verfügbar"
+  }
+}

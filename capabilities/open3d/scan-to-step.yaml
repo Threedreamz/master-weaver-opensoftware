@@ -1,0 +1,46 @@
+name: scan-to-step
+version: "1.0"
+description: Convert 3D scan (point cloud / mesh) to STEP solid via primitive fitting and B-Rep construction
+input:
+  type: object
+  properties:
+    scanPath:
+      type: string
+      description: Path to scan file (PLY, OBJ, STL, XYZ, PCD)
+    outputFormat:
+      type: string
+      enum: [step, iges]
+      default: step
+    primitiveTypes:
+      type: array
+      items:
+        type: string
+        enum: [plane, cylinder, sphere, cone]
+      description: Which primitive types to fit (default all)
+    downsampleVoxelSize:
+      type: number
+      default: 1.0
+      description: Voxel size for downsampling in mm (0 = no downsampling)
+    outlierRemoval:
+      type: boolean
+      default: true
+  required: [scanPath]
+output:
+  type: object
+  properties:
+    success:
+      type: boolean
+    stepPath:
+      type: string
+    primitives:
+      type: array
+    pointCount:
+      type: integer
+    pointCountAfterCleanup:
+      type: integer
+    duration:
+      type: number
+    warnings:
+      type: array
+timeout: 600000
+tags: [open3d, scan, reverse-engineering, step, point-cloud, primitive-fitting]

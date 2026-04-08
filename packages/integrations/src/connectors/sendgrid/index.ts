@@ -1,0 +1,38 @@
+export { SendGridClient } from "./client.js";
+export {
+  verifySendGridWebhook,
+  parseSendGridWebhookEvents,
+  extractSendGridWebhookHeaders,
+} from "./webhooks.js";
+export type { SendGridWebhookHeaders } from "./webhooks.js";
+export type {
+  SendGridClientConfig,
+  SendGridEmailAddress,
+  SendGridPersonalization,
+  SendGridAttachment,
+  SendGridContent,
+  SendGridASM,
+  SendGridMailSettings,
+  SendGridTrackingSettings,
+  SendGridSendEmailRequest,
+  SendGridTemplate,
+  SendGridTemplateVersion,
+  SendGridListTemplatesResponse,
+  SendGridCreateTemplateRequest,
+  SendGridCreateTemplateVersionRequest,
+  SendGridContact,
+  SendGridUpsertContactsRequest,
+  SendGridUpsertContactsResponse,
+  SendGridSearchContactsRequest,
+  SendGridSearchContactsResponse,
+  SendGridDeleteContactsResponse,
+  SendGridContactList,
+  SendGridListContactListsResponse,
+  SendGridGlobalStats,
+  SendGridStatsMetrics,
+  SendGridStatsParams,
+  SendGridCategoryStatsParams,
+  SendGridWebhookEventType,
+  SendGridWebhookEvent,
+  SendGridWebhookPayload,
+} from "./types.js";

@@ -1,0 +1,33 @@
+name: train-gaussian-splat
+version: "1.0"
+description: Train 3D Gaussian Splatting from photos
+input:
+  type: object
+  properties:
+    imagesDir:
+      type: string
+    iterations:
+      type: integer
+      default: 7000
+    quality:
+      type: string
+      enum: [low, medium, high]
+      default: medium
+    outputFormat:
+      type: string
+      enum: [ply, splat]
+      default: ply
+  required: [imagesDir]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    splatCount:
+      type: integer
+    metrics:
+      type: object
+    success:
+      type: boolean
+timeout: 600000
+tags: [open3d, gaussian-splatting, 3dgs, training, neural]

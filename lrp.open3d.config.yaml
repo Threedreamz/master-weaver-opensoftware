@@ -1,0 +1,42 @@
+name: open3d
+version: "0.1.0"
+description: Open3D unified 3D platform LRP configuration
+
+capabilities:
+  - capabilities/convert-mesh.yaml
+  - capabilities/convert-cad.yaml
+  - capabilities/optimize-mesh.yaml
+  - capabilities/slice-model.yaml
+  - capabilities/render-preview.yaml
+  - capabilities/analyze-mesh.yaml
+  - capabilities/generate-heightmap.yaml
+
+runtimes:
+  typescript:
+    priority: 1
+    command: "node"
+    args: ["dist/lrp-handler.js"]
+    protocol: stdio
+    healthCheck:
+      interval: 30000
+      timeout: 5000
+
+  python:
+    priority: 3
+    command: "python"
+    args: ["runtimes/python/main.py"]
+    protocol: stdio
+    env:
+      PYTHONPATH: "runtimes/python"
+    healthCheck:
+      interval: 30000
+      timeout: 10000
+
+  rust:
+    priority: 2
+    command: "cargo"
+    args: ["run", "--manifest-path", "runtimes/rust/Cargo.toml"]
+    protocol: stdio
+    healthCheck:
+      interval: 30000
+      timeout: 5000

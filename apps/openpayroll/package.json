@@ -1,0 +1,46 @@
+{
+  "name": "openpayroll",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo --port 4172",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opensoftware/config": "workspace:*",
+    "@opensoftware/db": "workspace:*",
+    "@opensoftware/ui": "workspace:*",
+    "@tailwindcss/postcss": "^4.2.1",
+    "better-sqlite3": "^12.6.2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.45.1",
+    "lucide-react": "^0.576.0",
+    "next": "^16.1.6",
+    "@auth/drizzle-adapter": "^0.9.0",
+    "next-auth": "^5.0.0-beta.30",
+    "next-intl": "^4.8.3",
+    "next-themes": "^0.4.6",
+    "postcss": "^8.5.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.9"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "OpenBounty",
+    "description": "Zeit-, Leistungs- und Bonussystem"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "zeiterfassung": "Zeiterfassung",
+    "projekte": "Projekte",
+    "meetings": "Meetings",
+    "leistungen": "Leistungen",
+    "compliance": "Compliance",
+    "arbeitsplatz": "Arbeitsplatz",
+    "einstellungen": "Einstellungen"
+  }
+}

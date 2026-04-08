@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2/main/core/tauri-config-schema/schema.json",
+  "productName": "Open3D Studio",
+  "version": "0.1.0",
+  "identifier": "com.3dreamz.open3d",
+  "build": {
+    "devUrl": "http://localhost:4178",
+    "frontendDist": "../.next"
+  },
+  "app": {
+    "title": "Open3D Studio",
+    "windows": [
+      {
+        "title": "Open3D Studio",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

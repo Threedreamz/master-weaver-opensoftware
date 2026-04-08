@@ -1,0 +1,30 @@
+name: cam-toolpath
+version: "1.0"
+description: Generate CNC toolpath G-code from mesh
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    toolDiameter:
+      type: number
+    stepDown:
+      type: number
+    strategy:
+      type: string
+      enum: [roughing, finishing, contour, pocket]
+      default: roughing
+  required: [inputPath, toolDiameter, stepDown]
+output:
+  type: object
+  properties:
+    gcode:
+      type: string
+    estimatedTime:
+      type: number
+    toolpathLength:
+      type: number
+    success:
+      type: boolean
+timeout: 120000
+tags: [open3d, cam, cnc, toolpath, gcode]

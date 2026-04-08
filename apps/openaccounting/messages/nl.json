@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Open-source dubbel boekhouden" },
+  "accounting": { "dashboard": "Dashboard", "customers": "Klanten", "invoices": "Facturen", "transactions": "Transacties", "booking": "Boeking", "matching": "Afstemming", "documents": "Documenten", "kontenplan": "Rekeningschema", "suppliers": "Leveranciers", "reports": "Rapporten", "export": "Exporteren", "settings": "Instellingen", "bwa": "BWA", "bilanz": "Balans", "guv": "Winst- en verliesrekening", "noData": "Geen gegevens", "addCustomer": "Klant toevoegen", "addSupplier": "Leverancier toevoegen", "newInvoice": "Nieuwe factuur", "newBooking": "Nieuwe boeking", "importTransactions": "Transacties importeren", "uploadDocument": "Document uploaden", "addAccount": "Rekening toevoegen" }
+}

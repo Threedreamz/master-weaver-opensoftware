@@ -1,0 +1,22 @@
+export { Dynamics365Client } from "./client.js";
+export type {
+  Dynamics365Config,
+  DynamicsODataCollection,
+  DynamicsErrorResponse,
+  DynamicsQueryParams,
+  Customer,
+  CustomerCreatePayload,
+  Vendor,
+  VendorCreatePayload,
+  GeneralLedgerEntry,
+  SalesInvoice,
+  SalesInvoiceLine,
+  SalesInvoiceCreatePayload,
+  SalesInvoiceLineCreatePayload,
+  PurchaseInvoice,
+  PurchaseInvoiceLine,
+  PurchaseInvoiceCreatePayload,
+  PurchaseInvoiceLineCreatePayload,
+  DynamicsItem,
+  DynamicsItemCreatePayload,
+} from "./types.js";

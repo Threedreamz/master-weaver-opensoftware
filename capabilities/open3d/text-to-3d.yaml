@@ -1,0 +1,36 @@
+name: text-to-3d
+version: "1.0"
+description: Generate 3D mesh from text prompt using Shap-E
+input:
+  type: object
+  properties:
+    prompt:
+      type: string
+    model:
+      type: string
+      enum: [shap-e]
+      default: shap-e
+    numSamples:
+      type: integer
+      default: 1
+    guidanceScale:
+      type: number
+      default: 15.0
+    outputFormat:
+      type: string
+      enum: [glb, obj, stl]
+      default: glb
+  required: [prompt]
+output:
+  type: object
+  properties:
+    meshPath:
+      type: string
+    format:
+      type: string
+    duration:
+      type: number
+    success:
+      type: boolean
+timeout: 180000
+tags: [open3d, ai, text-to-3d, shap-e, generation]

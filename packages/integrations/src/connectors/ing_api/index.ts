@@ -1,0 +1,21 @@
+export { INGClient } from "./client.js";
+export type {
+  INGClientConfig,
+  CurrencyCode,
+  INGBalanceType,
+  INGBookingStatus,
+  INGAccountType,
+  INGAmount,
+  INGAccountReference,
+  INGAccount,
+  INGAccountsResponse,
+  INGBalance,
+  INGBalancesResponse,
+  INGTransaction,
+  INGTransactionsResponse,
+  INGTransactionsParams,
+  INGConsentRequest,
+  INGConsentResponse,
+  INGConsentStatusResponse,
+  INGHrefLink,
+} from "./types.js";

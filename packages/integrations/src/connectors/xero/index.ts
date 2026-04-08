@@ -1,0 +1,30 @@
+export { XeroClient } from "./client.js";
+export { XeroWebhookProcessor, verifyXeroWebhook } from "./webhooks.js";
+export type { XeroWebhookHandler } from "./webhooks.js";
+export type {
+  XeroContact,
+  XeroAddress,
+  XeroPhone,
+  XeroContactPerson,
+  XeroInvoice,
+  XeroInvoiceType,
+  XeroInvoiceStatus,
+  XeroLineItem,
+  XeroTrackingCategory,
+  XeroBankTransaction,
+  XeroManualJournal,
+  XeroJournalLine,
+  XeroAccount,
+  XeroAccountType,
+  XeroPayment,
+  XeroPrepayment,
+  XeroOverpayment,
+  XeroCreditNote,
+  XeroPaginationParams,
+  XeroResponse,
+  XeroClientConfig,
+  XeroWebhookEventType,
+  XeroWebhookResourceType,
+  XeroWebhookEvent,
+  XeroWebhookPayload,
+} from "./types.js";

@@ -1,0 +1,35 @@
+name: train-nerf
+version: "1.0"
+description: Train NeRF from images using nerfstudio
+input:
+  type: object
+  properties:
+    imagesDir:
+      type: string
+    method:
+      type: string
+      enum: [nerfacto, instant-ngp, tensorf, splatfacto]
+      default: nerfacto
+    iterations:
+      type: integer
+      default: 10000
+    exportFormat:
+      type: string
+      enum: [mesh, ply, splat]
+      default: mesh
+  required: [imagesDir]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    checkpointPath:
+      type: string
+    metrics:
+      type: object
+    duration:
+      type: number
+    success:
+      type: boolean
+timeout: 600000
+tags: [open3d, nerf, nerfstudio, neural, training]

@@ -1,0 +1,37 @@
+export { ResendClient } from "./client.js";
+export {
+  verifyResendWebhook,
+  parseResendWebhookEvent,
+  extractResendWebhookHeaders,
+} from "./webhooks.js";
+export type { ResendWebhookHeaders } from "./webhooks.js";
+export type {
+  ResendClientConfig,
+  ResendEmailAddress,
+  ResendAttachment,
+  ResendTag,
+  ResendSendEmailRequest,
+  ResendSendEmailResponse,
+  ResendBatchSendRequest,
+  ResendBatchSendResponse,
+  ResendEmail,
+  ResendDomain,
+  ResendDNSRecord,
+  ResendCreateDomainRequest,
+  ResendCreateDomainResponse,
+  ResendListDomainsResponse,
+  ResendVerifyDomainResponse,
+  ResendApiKey,
+  ResendCreateApiKeyRequest,
+  ResendCreateApiKeyResponse,
+  ResendListApiKeysResponse,
+  ResendAudience,
+  ResendCreateAudienceRequest,
+  ResendListAudiencesResponse,
+  ResendContact,
+  ResendCreateContactRequest,
+  ResendCreateContactResponse,
+  ResendListContactsResponse,
+  ResendWebhookEventType,
+  ResendWebhookEvent,
+} from "./types.js";

@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Dubbel bokföring med öppen källkod" },
+  "accounting": { "dashboard": "Översikt", "customers": "Kunder", "invoices": "Fakturor", "transactions": "Transaktioner", "booking": "Bokning", "matching": "Avstämning", "documents": "Dokument", "kontenplan": "Kontoplan", "suppliers": "Leverantörer", "reports": "Rapporter", "export": "Exportera", "settings": "Inställningar", "bwa": "BWA", "bilanz": "Balansräkning", "guv": "Resultaträkning", "noData": "Inga data", "addCustomer": "Lägg till kund", "addSupplier": "Lägg till leverantör", "newInvoice": "Ny faktura", "newBooking": "Ny bokning", "importTransactions": "Importera transaktioner", "uploadDocument": "Ladda upp dokument", "addAccount": "Lägg till konto" }
+}

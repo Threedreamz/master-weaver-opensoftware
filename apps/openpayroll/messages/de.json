@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "OpenPayroll",
+    "description": "Open-Source Lohnbuchhaltung"
+  },
+  "payroll": {
+    "dashboard": "Dashboard",
+    "employees": "Mitarbeiter",
+    "salaryTypes": "Lohnarten",
+    "payroll": "Lohnabrechnung",
+    "journal": "Lohnjournal",
+    "settings": "Einstellungen",
+    "noData": "Keine Daten",
+    "addEmployee": "Mitarbeiter hinzufuegen",
+    "addSalaryType": "Lohnart hinzufuegen",
+    "calculate": "Lohnabrechnung berechnen",
+    "activeEmployees": "Aktive Mitarbeiter",
+    "monthlyTotal": "Monatliche Lohnsumme",
+    "avgSalary": "Durchschnittliches Gehalt",
+    "nextPayroll": "Naechste Abrechnung"
+  }
+}

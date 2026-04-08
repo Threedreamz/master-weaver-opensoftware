@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "title": "OpenFlow — Visueller Formular-Flow-Builder",
+    "description": "Erstellen und verwalten Sie dynamische Multi-Step-Formulare"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "loginTitle": "OpenFlow Admin",
+    "loginDescription": "Melden Sie sich an, um Ihre Flows zu verwalten"
+  },
+  "admin": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "flows": "Flows",
+      "submissions": "Einreichungen",
+      "settings": "Einstellungen",
+      "folders": {
+        "content": "Inhalt",
+        "analytics": "Analytik"
+      }
+    },
+    "flows": {
+      "title": "Flow-Verwaltung",
+      "new": "Neuer Flow",
+      "empty": "Noch keine Flows erstellt",
+      "emptyDescription": "Erstellen Sie Ihren ersten visuellen Formular-Flow",
+      "status": {
+        "draft": "Entwurf",
+        "published": "Veröffentlicht",
+        "archived": "Archiviert"
+      }
+    },
+    "submissions": {
+      "title": "Einreichungen",
+      "empty": "Noch keine Einreichungen"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "totalFlows": "Flows gesamt",
+      "totalSubmissions": "Einreichungen gesamt",
+      "completionRate": "Abschlussrate",
+      "activeFlows": "Aktive Flows"
+    }
+  }
+}

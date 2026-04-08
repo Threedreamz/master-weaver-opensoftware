@@ -1,0 +1,35 @@
+export { HarvestClient } from "./client.js";
+export {
+  verifyHarvestWebhook,
+  parseHarvestWebhookPayload,
+  HarvestWebhookProcessor,
+} from "./webhooks.js";
+export type { HarvestWebhookHandler } from "./webhooks.js";
+export type {
+  HarvestClientConfig,
+  HarvestTimeEntry,
+  HarvestRef,
+  HarvestUserAssignmentRef,
+  HarvestTaskAssignmentRef,
+  HarvestExternalReference,
+  HarvestCreateTimeEntryRequest,
+  HarvestUpdateTimeEntryRequest,
+  HarvestTimeEntryListParams,
+  HarvestProject,
+  HarvestCreateProjectRequest,
+  HarvestClient as HarvestClientType,
+  HarvestCreateClientRequest,
+  HarvestInvoice,
+  HarvestInvoiceState,
+  HarvestInvoiceLineItem,
+  HarvestCreateInvoiceRequest,
+  HarvestCreateInvoiceLineItem,
+  HarvestExpense,
+  HarvestCreateExpenseRequest,
+  HarvestPaginatedResponse,
+  HarvestPagination,
+  HarvestUser,
+  HarvestWebhookEventType,
+  HarvestWebhookPayload,
+  HarvestWebhookSubscription,
+} from "./types.js";

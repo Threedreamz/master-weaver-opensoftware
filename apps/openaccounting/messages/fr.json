@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Comptabilité en partie double open source" },
+  "accounting": { "dashboard": "Tableau de bord", "customers": "Clients", "invoices": "Factures", "transactions": "Transactions", "booking": "Écriture", "matching": "Rapprochement", "documents": "Documents", "kontenplan": "Plan comptable", "suppliers": "Fournisseurs", "reports": "Rapports", "export": "Exporter", "settings": "Paramètres", "bwa": "BWA", "bilanz": "Bilan", "guv": "Compte de résultat", "noData": "Aucune donnée", "addCustomer": "Ajouter un client", "addSupplier": "Ajouter un fournisseur", "newInvoice": "Nouvelle facture", "newBooking": "Nouvelle écriture", "importTransactions": "Importer des transactions", "uploadDocument": "Télécharger un document", "addAccount": "Ajouter un compte" }
+}

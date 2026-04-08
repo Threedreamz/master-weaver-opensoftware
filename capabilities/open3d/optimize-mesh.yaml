@@ -1,0 +1,29 @@
+name: optimize-mesh
+version: "1.0"
+description: Optimize 3D mesh (simplification, vertex cache, compression)
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    simplifyRatio:
+      type: number
+      description: Target ratio (0.0-1.0)
+    draco:
+      type: boolean
+      description: Apply Draco compression
+    meshopt:
+      type: boolean
+      description: Apply meshoptimizer
+  required: [inputPath]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    compressionRatio:
+      type: number
+    success:
+      type: boolean
+timeout: 60000
+tags: [optimization, mesh, compression]

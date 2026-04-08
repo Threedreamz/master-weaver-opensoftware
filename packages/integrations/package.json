@@ -1,0 +1,25 @@
+{
+  "name": "@opensoftware/integrations",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./registry": "./src/registry/index.ts",
+    "./connectors/*": "./src/connectors/*/index.ts"
+  },
+  "dependencies": {
+    "@opensoftware/db": "workspace:*",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "@types/node": "^25.5.0",
+    "typescript": "^5.9.3"
+  }
+}

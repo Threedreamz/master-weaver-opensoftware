@@ -1,0 +1,37 @@
+name: generate-heightmap
+version: "1.0"
+description: Convert 2D image (PNG, JPEG) to 3D heightmap mesh
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    width:
+      type: number
+      default: 100
+    depth:
+      type: number
+      default: 100
+    maxHeight:
+      type: number
+      default: 10
+    invert:
+      type: boolean
+      default: false
+    smooth:
+      type: boolean
+      default: true
+  required: [inputPath]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    vertexCount:
+      type: integer
+    triangleCount:
+      type: integer
+    success:
+      type: boolean
+timeout: 30000
+tags: [2d-to-3d, heightmap, conversion]

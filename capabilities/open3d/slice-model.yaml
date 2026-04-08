@@ -1,0 +1,39 @@
+name: slice-model
+version: "1.0"
+description: Slice 3D model for FDM or SLA printing
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    printer:
+      type: string
+      description: Printer profile ID
+    technology:
+      type: string
+      enum: [fdm, sla, msla, dlp]
+    layerHeight:
+      type: number
+      default: 0.1
+    outputFormat:
+      type: string
+      enum: [gcode, sl1, ctb, pwmo]
+      default: gcode
+    options:
+      type: object
+  required: [inputPath, printer]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    layerCount:
+      type: integer
+    estimatedTime:
+      type: number
+    estimatedMaterial:
+      type: object
+    success:
+      type: boolean
+timeout: 300000
+tags: [slicing, 3d-printing, fdm, sla, gcode]

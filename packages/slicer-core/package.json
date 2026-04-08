@@ -1,0 +1,24 @@
+{
+  "name": "@opensoftware/slicer-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./parsers": "./src/parsers/index.ts",
+    "./slicers": "./src/slicers/index.ts",
+    "./gcode": "./src/gcode/index.ts",
+    "./infill": "./src/infill/index.ts",
+    "./supports": "./src/supports/index.ts",
+    "./thumbnail": "./src/thumbnail/generate-thumbnail.ts"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "opencascade.js": "^1.1.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

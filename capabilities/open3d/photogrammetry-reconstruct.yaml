@@ -1,0 +1,31 @@
+name: photogrammetry-reconstruct
+version: "1.0"
+description: Reconstruct 3D mesh from photographs using COLMAP
+input:
+  type: object
+  properties:
+    imagesDir:
+      type: string
+      description: Path to directory containing photographs
+    quality:
+      type: string
+      enum: [low, medium, high]
+      default: medium
+    outputFormat:
+      type: string
+      enum: [ply, obj, stl]
+      default: ply
+  required: [imagesDir]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    pointCount:
+      type: integer
+    vertexCount:
+      type: integer
+    success:
+      type: boolean
+timeout: 300000
+tags: [open3d, photogrammetry, colmap, reconstruction]

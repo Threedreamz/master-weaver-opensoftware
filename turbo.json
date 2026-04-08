@@ -1,0 +1,39 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "public/**", "next.config.ts", "tsconfig.json", "package.json"],
+      "outputs": [".next/**", "dist/**"],
+      "env": ["DATABASE_URL", "NEXT_PUBLIC_*", "NODE_ENV", "AUTH_SECRET", "FINDERAUTH_ISSUER", "FINDERAUTH_CLIENT_ID", "APP_NAME"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "vitest.config.ts", "tests/**"],
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
+    "test:watch": { "cache": false, "persistent": true },
+    "lint": {
+      "inputs": ["src/**", "*.config.*"],
+      "outputs": [],
+      "cache": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "tsconfig.json"],
+      "outputs": [],
+      "cache": true
+    },
+    "db:push": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false
+    }
+  }
+}

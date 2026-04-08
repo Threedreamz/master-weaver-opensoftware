@@ -1,0 +1,30 @@
+name: convert-mesh
+version: "1.0"
+description: Convert between 3D mesh formats (STL, OBJ, glTF, 3MF, STEP, etc.)
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+      description: Path to input file
+    inputFormat:
+      type: string
+      description: Input format (auto-detected if omitted)
+    outputFormat:
+      type: string
+      description: Target output format
+    options:
+      type: object
+      description: Conversion options (quality, scale, draco, etc.)
+  required: [inputPath, outputFormat]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    metadata:
+      type: object
+    success:
+      type: boolean
+timeout: 120000
+tags: [conversion, mesh, 3d]

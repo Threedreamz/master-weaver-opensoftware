@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenMailer", "description": "Open-source e-mailový klient" },
+  "mail": { "inbox": "Doručená pošta", "sent": "Odeslaná pošta", "drafts": "Koncepty", "trash": "Koš", "settings": "Nastavení", "compose": "Napsat", "noEmails": "Žádné e-maily", "addAccount": "Přidat účet" }
+}

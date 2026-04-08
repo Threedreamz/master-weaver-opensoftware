@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "OpenAccounting",
+    "description": "Open-source double-entry bookkeeping"
+  },
+  "accounting": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "invoices": "Invoices",
+    "transactions": "Transactions",
+    "booking": "Booking",
+    "matching": "Matching",
+    "documents": "Documents",
+    "kontenplan": "Chart of Accounts",
+    "suppliers": "Suppliers",
+    "reports": "Reports",
+    "export": "Export",
+    "settings": "Settings",
+    "bwa": "BWA",
+    "bilanz": "Balance Sheet",
+    "guv": "Income Statement",
+    "noData": "No data",
+    "addCustomer": "Add Customer",
+    "addSupplier": "Add Supplier",
+    "newInvoice": "New Invoice",
+    "newBooking": "New Booking",
+    "importTransactions": "Import Transactions",
+    "uploadDocument": "Upload Document",
+    "addAccount": "Add Account"
+  }
+}

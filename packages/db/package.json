@@ -1,0 +1,34 @@
+{
+  "name": "@opensoftware/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./openmailer": "./src/openmailer.schema.ts",
+    "./openaccounting": "./src/openaccounting.schema.ts",
+    "./openlawyer": "./src/openlawyer.schema.ts",
+    "./opensem": "./src/opensem.schema.ts",
+    "./openpayroll": "./src/openpayroll.schema.ts",
+    "./openinventory": "./src/openinventory.schema.ts",
+    "./openfarm": "./src/openfarm.schema.ts",
+    "./openslicer": "./src/openslicer.schema.ts",
+    "./opendesktop": "./src/opendesktop.schema.ts",
+    "./openbounty": "./src/openbounty.schema.ts",
+    "./openpipeline": "./src/openpipeline.schema.ts",
+    "./shared": "./src/shared.schema.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.9",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/slicer-core/src/**/*.{ts,tsx}";
+
+@layer theme {
+  :root {
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --color-brand: #2563eb;
+    --color-brand-dark: #1d4ed8;
+
+    /* Theme-aware colors (light mode defaults) */
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-panel: #f0f0f0;
+    --bg-panel-hover: #e5e5e5;
+    --bg-panel-header: rgba(240, 240, 240, 0.8);
+    --text-primary: #171717;
+    --text-secondary: #525252;
+    --text-muted: #737373;
+    --border: #d4d4d8;
+    --badge-bg: #e5e7eb;
+    --badge-text: #6b7280;
+  }
+
+  .dark {
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --bg-panel: #27272a;
+    --bg-panel-hover: #3f3f46;
+    --bg-panel-header: rgba(24, 24, 27, 0.8);
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --border: #3f3f46;
+    --badge-bg: #27272a;
+    --badge-text: #a1a1aa;
+  }
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+    overflow: hidden;
+  }
+}
+
+.toolbar-btn {
+  @apply flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors;
+  color: var(--text-secondary);
+}
+.toolbar-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-panel-hover);
+}

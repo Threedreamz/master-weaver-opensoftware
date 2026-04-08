@@ -1,0 +1,21 @@
+export { GdprRegisterClient } from "./client.js";
+export type {
+  GdprRegisterClientConfig,
+  GdprProcessingActivity,
+  GdprProcessingStatus,
+  GdprLegalBasis,
+  GdprDataSubjectCategory,
+  GdprDataCategory,
+  GdprThirdCountryTransfer,
+  GdprProcessor,
+  GdprDpia,
+  GdprDpiaStatus,
+  GdprDpiaRisk,
+  GdprRiskLevel,
+  GdprMitigationMeasure,
+  GdprConsultation,
+  GdprListProcessingParams,
+  GdprCreateProcessingParams,
+  GdprCreateDpiaParams,
+  GdprListResponse,
+} from "./types.js";

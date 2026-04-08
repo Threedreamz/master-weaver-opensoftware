@@ -1,0 +1,21 @@
+export { TableauClient } from "./client.js";
+export type {
+  TableauClientConfig,
+  TableauAuthRequest,
+  TableauAuthResponse,
+  TableauWorkbook,
+  TableauWorkbookListResponse,
+  TableauView,
+  TableauViewListResponse,
+  TableauDatasource,
+  TableauDatasourceListResponse,
+  TableauProject,
+  TableauProjectListResponse,
+  TableauCreateProjectRequest,
+  TableauPublishWorkbookRequest,
+  TableauPublishDatasourceRequest,
+  TableauUser,
+  TableauJob,
+  TableauPagination,
+  TableauQueryParams,
+} from "./types.js";

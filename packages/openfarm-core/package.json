@@ -1,0 +1,22 @@
+{
+  "name": "@opensoftware/openfarm-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@opensoftware/slicer-core": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

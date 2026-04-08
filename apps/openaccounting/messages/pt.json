@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Contabilidade de partidas dobradas de código aberto" },
+  "accounting": { "dashboard": "Painel", "customers": "Clientes", "invoices": "Faturas", "transactions": "Transações", "booking": "Lançamento", "matching": "Conciliação", "documents": "Documentos", "kontenplan": "Plano de contas", "suppliers": "Fornecedores", "reports": "Relatórios", "export": "Exportar", "settings": "Configurações", "bwa": "BWA", "bilanz": "Balanço", "guv": "Demonstração de resultados", "noData": "Sem dados", "addCustomer": "Adicionar cliente", "addSupplier": "Adicionar fornecedor", "newInvoice": "Nova fatura", "newBooking": "Novo lançamento", "importTransactions": "Importar transações", "uploadDocument": "Carregar documento", "addAccount": "Adicionar conta" }
+}

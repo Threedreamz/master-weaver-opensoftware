@@ -1,0 +1,22 @@
+export { PowerBIClient } from "./client.js";
+export type {
+  PowerBIClientConfig,
+  PowerBIDataset,
+  PowerBIDatasetCreateRequest,
+  PowerBITableDefinition,
+  PowerBIColumnDefinition,
+  PowerBIMeasureDefinition,
+  PowerBIRefreshRequest,
+  PowerBIRefreshHistoryEntry,
+  PowerBIReport,
+  PowerBIExportRequest,
+  PowerBIExportStatus,
+  PowerBIDashboard,
+  PowerBITile,
+  PowerBIPushRowsRequest,
+  PowerBIGateway,
+  PowerBIEmbedTokenRequest,
+  PowerBIEffectiveIdentity,
+  PowerBIEmbedToken,
+  PowerBIListResponse,
+} from "./types.js";

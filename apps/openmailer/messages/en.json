@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "OpenMailer",
+    "description": "Open-source email client"
+  },
+  "mail": {
+    "inbox": "Inbox",
+    "sent": "Sent",
+    "drafts": "Drafts",
+    "trash": "Trash",
+    "settings": "Settings",
+    "compose": "Compose",
+    "noEmails": "No emails",
+    "addAccount": "Add account"
+  }
+}

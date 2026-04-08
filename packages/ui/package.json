@@ -1,0 +1,25 @@
+{
+  "name": "@opensoftware/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/*": "./src/components/*",
+    "./lib/*": "./src/lib/*",
+    "./hooks/*": "./src/hooks/*"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1"
+  },
+  "peerDependencies": {
+    "lucide-react": "*",
+    "next": "*",
+    "react": "*"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "@types/react": "^19.2.14",
+    "typescript": "^5.9.3"
+  }
+}

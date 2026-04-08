@@ -1,0 +1,42 @@
+name: fea-stress-analysis
+version: "1.0"
+description: FEA stress/displacement analysis using CalculiX
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    material:
+      type: object
+      properties:
+        youngsModulus:
+          type: number
+        poissonsRatio:
+          type: number
+      required: [youngsModulus, poissonsRatio]
+    loads:
+      type: array
+      items:
+        type: object
+    constraints:
+      type: array
+      items:
+        type: object
+    meshResolution:
+      type: string
+      enum: [coarse, medium, fine]
+      default: medium
+  required: [inputPath, material, loads, constraints]
+output:
+  type: object
+  properties:
+    maxStress:
+      type: number
+    maxDisplacement:
+      type: number
+    safetyFactor:
+      type: number
+    success:
+      type: boolean
+timeout: 300000
+tags: [open3d, fea, stress, calculix, simulation]

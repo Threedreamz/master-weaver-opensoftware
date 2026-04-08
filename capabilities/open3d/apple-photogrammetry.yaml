@@ -1,0 +1,29 @@
+name: apple-photogrammetry
+version: "1.0"
+description: Apple Object Capture photogrammetry (macOS only, Apple Silicon)
+input:
+  type: object
+  properties:
+    imagesDir:
+      type: string
+      description: Directory containing photographs
+    quality:
+      type: string
+      enum: [preview, reduced, medium, full, raw]
+      default: medium
+    outputFormat:
+      type: string
+      enum: [usdz, obj, ply]
+      default: usdz
+  required: [imagesDir]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    vertexCount:
+      type: integer
+    success:
+      type: boolean
+timeout: 600000
+tags: [open3d, photogrammetry, apple, object-capture, macos, realitykit]

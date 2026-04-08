@@ -1,0 +1,20 @@
+export { PostbankClient } from "./client.js";
+export type {
+  PostbankClientConfig,
+  CurrencyCode,
+  PostbankBalanceType,
+  PostbankBookingStatus,
+  PostbankAmount,
+  PostbankAccountReference,
+  PostbankAccount,
+  PostbankAccountsResponse,
+  PostbankBalance,
+  PostbankBalancesResponse,
+  PostbankTransaction,
+  PostbankTransactionsResponse,
+  PostbankTransactionsParams,
+  PostbankConsentRequest,
+  PostbankConsentResponse,
+  PostbankConsentStatusResponse,
+  PostbankHrefLink,
+} from "./types.js";

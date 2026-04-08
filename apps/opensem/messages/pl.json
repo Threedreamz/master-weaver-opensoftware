@@ -1,0 +1,5 @@
+{
+  "app": { "name": "OpenSEM", "description": "Marketing w wyszukiwarkach open source" },
+  "seo": { "dashboard": "Panel", "audit": "Audyt", "pagespeed": "PageSpeed", "metaTags": "Meta Tagi", "rankings": "Pozycje", "semrush": "Semrush", "runAudit": "Uruchom audyt", "addUrl": "Dodaj URL", "noData": "Brak danych" },
+  "analytics": { "dashboard": "Panel analityczny", "events": "Zdarzenia", "funnels": "Lejki", "attribution": "Atrybucja", "cohorts": "Kohorty", "performance": "Wydajność", "noData": "Brak danych" }
+}

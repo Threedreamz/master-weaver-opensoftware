@@ -1,0 +1,5 @@
+{
+  "app": { "name": "OpenSEO", "description": "Open-source SEO audit a analytika" },
+  "seo": { "dashboard": "Přehled", "audit": "Audit", "pagespeed": "PageSpeed", "metaTags": "Meta tagy", "rankings": "Pozice", "semrush": "Semrush", "runAudit": "Spustit audit", "addUrl": "Přidat URL", "noData": "Žádná data" },
+  "analytics": { "dashboard": "Analytický přehled", "events": "Události", "funnels": "Trychtýře", "attribution": "Atribuce", "cohorts": "Kohorty", "performance": "Výkon", "noData": "Žádná data" }
+}

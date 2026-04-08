@@ -1,0 +1,27 @@
+export { GoogleCloudVisionClient } from "./client.js";
+export type { GoogleCloudVisionClientOptions } from "./client.js";
+export type {
+  GoogleCloudVisionClientConfig,
+  VisionImage,
+  VisionFeatureType,
+  VisionFeature,
+  VisionAnnotateRequest,
+  VisionBatchAnnotateRequest,
+  VisionVertex,
+  VisionBoundingPoly,
+  VisionEntityAnnotation,
+  VisionTextAnnotation,
+  VisionPage,
+  VisionBlock,
+  VisionParagraph,
+  VisionWord,
+  VisionSymbol,
+  VisionTextProperty,
+  VisionLabel,
+  VisionLikelihood,
+  VisionSafeSearchAnnotation,
+  VisionLocalizedObject,
+  VisionWebDetection,
+  VisionAnnotateResponse,
+  VisionBatchAnnotateResponse,
+} from "./types.js";

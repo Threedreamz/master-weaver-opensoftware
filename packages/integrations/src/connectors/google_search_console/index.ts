@@ -1,0 +1,21 @@
+export { GoogleSearchConsoleClient } from "./client.js";
+export type {
+  SearchAnalyticsDimension,
+  SearchType,
+  AggregationType,
+  DeviceType,
+  DataState,
+  DimensionFilterGroup,
+  DimensionFilter,
+  SearchAnalyticsRequest,
+  SearchAnalyticsRow,
+  SearchAnalyticsResponse,
+  InspectUrlRequest,
+  InspectUrlResponse,
+  SitemapContent,
+  Sitemap,
+  SitemapsListResponse,
+  PermissionLevel,
+  Site,
+  SitesListResponse,
+} from "./types.js";

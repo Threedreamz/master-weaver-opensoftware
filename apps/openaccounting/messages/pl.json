@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenAccounting", "description": "Księgowość podwójnego zapisu open source" },
+  "accounting": { "dashboard": "Panel", "customers": "Klienci", "invoices": "Faktury", "transactions": "Transakcje", "booking": "Księgowanie", "matching": "Uzgadnianie", "documents": "Dokumenty", "kontenplan": "Plan kont", "suppliers": "Dostawcy", "reports": "Raporty", "export": "Eksport", "settings": "Ustawienia", "bwa": "BWA", "bilanz": "Bilans", "guv": "Rachunek zysków i strat", "noData": "Brak danych", "addCustomer": "Dodaj klienta", "addSupplier": "Dodaj dostawcę", "newInvoice": "Nowa faktura", "newBooking": "Nowe księgowanie", "importTransactions": "Importuj transakcje", "uploadDocument": "Prześlij dokument", "addAccount": "Dodaj konto" }
+}

@@ -1,0 +1,74 @@
+name: batch-slice
+version: "1.0"
+description: Slice multiple 3D models in parallel using ProcessPoolExecutor
+input:
+  type: object
+  properties:
+    jobs:
+      type: array
+      description: Array of slice jobs to run in parallel
+      items:
+        type: object
+        properties:
+          jobId:
+            type: string
+            description: Caller-provided job ID for result correlation
+          inputPath:
+            type: string
+          printer:
+            type: string
+            description: Printer profile ID
+          technology:
+            type: string
+            enum: [fdm, sla, msla, dlp]
+            default: fdm
+          layerHeight:
+            type: number
+            default: 0.2
+          outputFormat:
+            type: string
+            enum: [gcode, sl1, ctb, pwmo]
+            default: gcode
+          outputDir:
+            type: string
+            description: Directory to write output files (defaults to /tmp/open3d-sliced)
+          options:
+            type: object
+        required: [inputPath, printer]
+    maxWorkers:
+      type: integer
+      description: Max parallel slicer processes (defaults to CPU count)
+      default: 0
+  required: [jobs]
+output:
+  type: object
+  properties:
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          jobId:
+            type: string
+          success:
+            type: boolean
+          outputPath:
+            type: string
+          layerCount:
+            type: integer
+          estimatedTime:
+            type: number
+          estimatedMaterial:
+            type: object
+          error:
+            type: string
+    totalJobs:
+      type: integer
+    succeeded:
+      type: integer
+    failed:
+      type: integer
+    duration:
+      type: number
+timeout: 600000
+tags: [open3d, slicing, batch, parallel, fdm, sla, gcode, openfarm]

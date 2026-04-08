@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenMailer", "description": "Open-source e-mailclient" },
+  "mail": { "inbox": "Postvak IN", "sent": "Verzonden", "drafts": "Concepten", "trash": "Prullenbak", "settings": "Instellingen", "compose": "Opstellen", "noEmails": "Geen e-mails", "addAccount": "Account toevoegen" }
+}

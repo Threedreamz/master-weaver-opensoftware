@@ -1,0 +1,28 @@
+name: render-preview
+version: "1.0"
+description: Render 3D model thumbnail/preview image
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    width:
+      type: integer
+      default: 512
+    height:
+      type: integer
+      default: 512
+    format:
+      type: string
+      enum: [png, jpeg, webp]
+      default: png
+  required: [inputPath]
+output:
+  type: object
+  properties:
+    imagePath:
+      type: string
+    success:
+      type: boolean
+timeout: 30000
+tags: [rendering, preview, thumbnail]

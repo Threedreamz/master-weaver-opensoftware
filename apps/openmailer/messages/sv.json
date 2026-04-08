@@ -1,0 +1,4 @@
+{
+  "app": { "name": "OpenMailer", "description": "E-postklient med öppen källkod" },
+  "mail": { "inbox": "Inkorg", "sent": "Skickat", "drafts": "Utkast", "trash": "Papperskorg", "settings": "Inställningar", "compose": "Skriv", "noEmails": "Inga e-postmeddelanden", "addAccount": "Lägg till konto" }
+}

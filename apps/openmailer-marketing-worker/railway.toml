@@ -1,0 +1,10 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/openmailer-marketing-worker/Dockerfile"
+watchPatterns = [
+  "apps/openmailer-marketing-worker/**",
+  "packages/openmailer-core/**",
+  "packages/openmailer-db/**",
+  "packages/openmailer-queue/**",
+  "packages/openmailer-email/**",
+]

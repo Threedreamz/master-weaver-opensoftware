@@ -1,0 +1,35 @@
+name: convert-cad
+version: "1.0"
+description: Convert between CAD formats (STEP, IGES, BREP, Fusion .f3d)
+input:
+  type: object
+  properties:
+    inputPath:
+      type: string
+    inputFormat:
+      type: string
+      enum: [step, stp, iges, igs, brep, f3d, f3z, scad, jscad]
+    outputFormat:
+      type: string
+      enum: [step, stl, obj, gltf, glb, iges]
+    options:
+      type: object
+      properties:
+        linearDeflection:
+          type: number
+          default: 0.1
+        angularDeflection:
+          type: number
+          default: 0.5
+  required: [inputPath, outputFormat]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    metadata:
+      type: object
+    success:
+      type: boolean
+timeout: 180000
+tags: [conversion, cad, step, iges, fusion]

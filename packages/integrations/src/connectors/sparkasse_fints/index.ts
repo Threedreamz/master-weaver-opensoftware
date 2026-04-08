@@ -1,0 +1,23 @@
+export { SparkasseFinTSClient } from "./client.js";
+export type {
+  CurrencyCode,
+  FinTSDialogPhase,
+  FinTSMessageDirection,
+  FinTSTanMethod,
+  FinTSSegmentId,
+  FinTSDataElement,
+  FinTSSegment,
+  FinTSMessage,
+  FinTSDialogState,
+  FinTSBankParameters,
+  FinTSUserParameters,
+  FinTSAccountInfo,
+  FinTSBalance,
+  FinTSMonetaryAmount,
+  FinTSTransaction,
+  FinTSTransactionsParams,
+  FinTSClientConfig,
+  MT940Statement,
+  MT940Transaction,
+  MT940Balance,
+} from "./types.js";
