@@ -27,11 +27,26 @@ RUN pnpm install --no-frozen-lockfile
 # Copy full source from pruned output
 COPY --from=pruner /app/out/full/ .
 
+# Generate SQL migration files (for runtime migration via instrumentation.ts)
+WORKDIR /app/apps/openlawyer
+RUN mkdir -p data drizzle && npx drizzle-kit generate
+
 # Build the Next.js app (standalone output with outputFileTracingRoot)
+WORKDIR /app
 RUN pnpm turbo build --filter=openlawyer
 
 # Ensure optional directories exist for COPY in runner stage
 RUN mkdir -p /app/apps/openlawyer/public /app/apps/openlawyer/drizzle
+
+# Prepare better-sqlite3 runtime deps
+RUN mkdir -p /tmp/runtime-node-modules && \
+    BSQL_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "better-sqlite3@*" -type d | head -1) && \
+    cp -rL "$BSQL_STORE/node_modules/better-sqlite3" /tmp/runtime-node-modules/better-sqlite3 && \
+    BIND_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "bindings@*" -type d | head -1) && \
+    if [ -n "$BIND_STORE" ]; then \
+      cp -rL "$BIND_STORE/node_modules/bindings" /tmp/runtime-node-modules/bindings 2>/dev/null || true; \
+      cp -rL "$BIND_STORE/node_modules/file-uri-to-path" /tmp/runtime-node-modules/file-uri-to-path 2>/dev/null || true; \
+    fi
 
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
@@ -47,6 +62,15 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/apps/openlawyer/.next/standalone/ /app/
 COPY --from=builder /app/apps/openlawyer/.next/static /app/apps/openlawyer/.next/static
 COPY --from=builder /app/apps/openlawyer/public /app/apps/openlawyer/public
+
+# Copy generated SQL migration files for runtime instrumentation.ts
+COPY --from=builder /app/apps/openlawyer/drizzle /app/apps/openlawyer/drizzle
+
+# Copy better-sqlite3 native module for runtime
+COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/
+
+# Create data directory for SQLite (volume mount point on Railway)
+RUN mkdir -p /app/data
 
 # Ensure cache directories are writable
 RUN chown -R nextjs:nodejs /app

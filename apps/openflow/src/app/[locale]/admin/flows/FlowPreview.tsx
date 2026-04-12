@@ -25,7 +25,7 @@ function parseJson<T>(value: string | T | null): T {
   return value as T;
 }
 
-function ComponentPreview({ comp }: { comp: PreviewComponent }) {
+function ComponentPreview({ comp, primaryColor }: { comp: PreviewComponent; primaryColor: string }) {
   const cfg = parseJson<Record<string, unknown>>(comp.config);
 
   switch (comp.componentType) {
@@ -182,7 +182,7 @@ function ComponentPreview({ comp }: { comp: PreviewComponent }) {
     case "button":
       return (
         <div className="flex">
-          <div className="h-4 bg-indigo-500 rounded px-2 flex items-center">
+          <div className="h-4 rounded px-2 flex items-center" style={{ backgroundColor: primaryColor }}>
             <div className="h-1.5 bg-white/80 rounded" style={{ width: "32px" }} />
           </div>
         </div>
@@ -207,7 +207,7 @@ function ComponentPreview({ comp }: { comp: PreviewComponent }) {
             <p className="text-gray-500" style={{ fontSize: "7px" }}>{comp.label}</p>
           )}
           <div className="h-1.5 bg-gray-200 rounded-full relative">
-            <div className="h-1.5 bg-indigo-400 rounded-full" style={{ width: "40%" }} />
+            <div className="h-1.5 rounded-full" style={{ width: "40%", backgroundColor: primaryColor }} />
           </div>
         </div>
       );
@@ -241,7 +241,7 @@ function ComponentPreview({ comp }: { comp: PreviewComponent }) {
   }
 }
 
-export function FlowPreview({ step }: { step: PreviewStep | null | undefined }) {
+export function FlowPreview({ step, primaryColor = "#6366f1" }: { step: PreviewStep | null | undefined; primaryColor?: string }) {
   if (!step) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-1.5">
@@ -270,7 +270,7 @@ export function FlowPreview({ step }: { step: PreviewStep | null | undefined }) 
         </p>
       )}
       {components.map((comp) => (
-        <ComponentPreview key={comp.id} comp={comp} />
+        <ComponentPreview key={comp.id} comp={comp} primaryColor={primaryColor} />
       ))}
       {components.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full gap-1 pt-4">

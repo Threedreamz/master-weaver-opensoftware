@@ -41,6 +41,8 @@ export function FlowDetailNav({
   const [isSavingAndLeaving, setIsSavingAndLeaving] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showAIGenerate, setShowAIGenerate] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const basePath = `/${locale}/flow/${flowId}`;
   const homePath = `/${locale}/admin`;
@@ -109,6 +111,28 @@ export function FlowDetailNav({
     setShowUnsavedDialog(false);
     router.push(homePath);
   }, [router, homePath]);
+
+  const handlePublish = useCallback(async () => {
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      const res = await fetch(`/api/flows/${flowId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "published" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPublishError(data.error ?? "Fehler beim Veröffentlichen");
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setPublishError("Fehler beim Veröffentlichen");
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [flowId, router]);
 
   const handleSubmitForReview = useCallback(async () => {
     try {

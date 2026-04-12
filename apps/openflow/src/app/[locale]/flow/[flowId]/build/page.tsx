@@ -70,6 +70,7 @@ import CodePanel from "../CodePanel";
 import RulesPanel from "../RulesPanel";
 import QAPanel from "../QAPanel";
 import AIAssistant from "../AIAssistant";
+import { COMPONENT_DEFINITIONS } from "@opensoftware/openflow-core";
 import type {
   FlowDefinition,
   FlowEdge,
@@ -77,9 +78,9 @@ import type {
   FlowTheme,
   StepComponent,
 } from "@opensoftware/openflow-core";
-import { resolveNextStep } from "@opensoftware/openflow-core";
 
 const STLViewerComponent = lazy(() => import("@opensoftware/openflow-renderer/stl-viewer"));
+import { FlowRenderer } from "@opensoftware/openflow-renderer";
 
 // ─── Inline SVG renderer (decodes data-URLs to allow color override) ─────────
 
@@ -128,8 +129,6 @@ function isSvgDataUrl(url: string): boolean {
   return url.startsWith("data:image/svg+xml");
 }
 
-const STLViewerComponent = lazy(() => import("@opensoftware/openflow-renderer/stl-viewer"));
-
 // ─── Sidebar Tab Types ────────────────────────────────────────────────────────
 
 type SidebarTab = "editor" | "regeln" | "design" | "code" | "integrationen";
@@ -149,6 +148,7 @@ const DEFAULT_THEME: FlowTheme = {
   borderColor: "#e5e7eb",
   borderWidth: "1px",
   transitionStyle: "fade",
+  selectionColor: "#6366f1",
 };
 
 // ─── Component Maps ──────────────────────────────────────────────────────────
@@ -177,6 +177,8 @@ const COMPONENT_ICON_MAP: Record<string, typeof Type> = {
   "pricing-card": CreditCard,
   "accordion-group": ChevronDownIcon,
   "payment-field": CreditCard,
+  "submit-button": Check,
+  "button": MousePointer,
 };
 
 const COMPONENT_LABEL_MAP: Record<string, string> = {
@@ -203,6 +205,8 @@ const COMPONENT_LABEL_MAP: Record<string, string> = {
   "pricing-card": "Preiskarte",
   "accordion-group": "Akkordeon",
   "payment-field": "Zahlung",
+  "submit-button": "Absenden-Button",
+  "button": "Button",
 };
 
 const COMPONENT_COLOR_MAP: Record<string, string> = {
@@ -229,6 +233,8 @@ const COMPONENT_COLOR_MAP: Record<string, string> = {
   "pricing-card": "#f59e0b",
   "accordion-group": "#8b5cf6",
   "payment-field": "#10b981",
+  "submit-button": "#16a34a",
+  "button": "#6366f1",
 };
 
 // ─── Component Palette Categories (Heyflow-style) ────────────────────────────
@@ -279,7 +285,7 @@ const PALETTE_CATEGORIES = [
     label: "Buttons",
     items: [
       { type: "button", label: "Weiter Button", icon: ArrowRight },
-      { type: "button", label: "Absenden Button", icon: Check },
+      { type: "submit-button", label: "Absenden Button", icon: Check },
       { type: "button", label: "Zurück Button", icon: ArrowLeft },
       { type: "button", label: "Link Button", icon: ExternalLink },
       { type: "button", label: "Universal Button", icon: MousePointer },
@@ -299,6 +305,7 @@ function BlockPreview({
   onDuplicate,
   onDelete,
   theme,
+  previewMode = false,
 }: {
   comp: StepComponent;
   isSelected: boolean;
@@ -309,11 +316,20 @@ function BlockPreview({
   onDuplicate: () => void;
   onDelete: () => void;
   theme: FlowTheme;
+  previewMode?: boolean;
 }) {
   const blockLabel =
     COMPONENT_LABEL_MAP[comp.componentType] ?? comp.componentType;
   const blockColor = COMPONENT_COLOR_MAP[comp.componentType] ?? "#6366f1";
   const config = comp.config as Record<string, unknown>;
+
+  // Apply margin spacing (same formula as ComponentRenderer.resolveSpacing)
+  const _mt = config?.marginTop as string;
+  const _mb = config?.marginBottom as string;
+  const spacingStyle: React.CSSProperties = {
+    ...(_mt && _mt !== "0" ? { marginTop: `${Number(_mt) * 0.25}rem` } : {}),
+    ...(_mb && _mb !== "0" ? { marginBottom: `${Number(_mb) * 0.25}rem` } : {}),
+  };
 
   const styleOverrides = (config.styleOverrides as Record<string, string>) ?? {};
   const fontSizeMap: Record<string, string> = {
@@ -650,8 +666,13 @@ function BlockPreview({
           </div>
         );
       case "image-choice": {
-        const imgOptions = (config.options as Array<{ value: string; label: string; imageUrl?: string }>) ?? [];
+        const imgOptions = (config.options as Array<{ value: string; label: string; imageUrl?: string; subtitle?: string; description?: string }>) ?? [];
         const imgCols = parseInt(String(config.columns ?? "2"), 10) || 2;
+        const showDesc = (config.showDescription as boolean) ?? false;
+        const styleOvr = (config.styleOverrides as Record<string, string>) ?? {};
+        const iconSizeRaw = styleOvr.iconSize || "";
+        // Auto-adjust card image height based on column count
+        const imgH = imgCols <= 1 ? "h-32" : imgCols <= 2 ? "h-20" : imgCols <= 3 ? "h-16" : "h-12";
         return (
           <div>
             {comp.label && (
@@ -666,19 +687,40 @@ function BlockPreview({
               </div>
             ) : (
               <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${imgCols}, 1fr)` }}>
-                {imgOptions.map((opt) => (
-                  <div key={opt.value} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                    <div className="h-20 bg-gray-100 flex items-center justify-center">
-                      {opt.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={opt.imageUrl} alt={opt.label} className="h-full w-full object-cover" />
-                      ) : (
-                        <Image size={20} className="text-gray-300" />
+                {imgOptions.map((opt) => {
+                  const isSvg = opt.imageUrl ? isSvgDataUrl(opt.imageUrl) : false;
+                  // Effective display size: user-set iconSize, otherwise column-based default
+                  const iconDisplaySize = iconSizeRaw || (imgCols <= 1 ? "4rem" : imgCols <= 2 ? "2.5rem" : imgCols <= 3 ? "2rem" : "1.5rem");
+                  return (
+                    <div key={opt.value} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                      {opt.imageUrl && (
+                        <div
+                          className="bg-gray-100 flex items-center justify-center"
+                          style={{ minHeight: iconDisplaySize, padding: "0.5rem" }}
+                        >
+                          {isSvg ? (
+                            <ColoredSvg
+                              src={opt.imageUrl}
+                              color={styleOvr.iconColor || undefined}
+                              size={iconDisplaySize}
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={opt.imageUrl}
+                              alt={opt.label}
+                              style={{ width: iconDisplaySize, height: iconDisplaySize, objectFit: "contain" }}
+                            />
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs font-medium text-gray-700 text-center px-2 pt-2 pb-1">{opt.label}</p>
+                      {showDesc && (opt.subtitle || opt.description) && (
+                        <p className="text-[10px] text-gray-400 text-center px-2 pb-2">{opt.subtitle || opt.description}</p>
                       )}
                     </div>
-                    <p className="text-xs font-medium text-gray-700 text-center p-2">{opt.label}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -878,6 +920,36 @@ function BlockPreview({
           </div>
         );
       }
+      case "submit-button": {
+        const sbText = (config.text as string) || "Absenden";
+        const sbBg = (config.buttonColor as string) || "#16a34a";
+        const sbRadius = (config.borderRadius as string) || theme.borderRadius || "0.5rem";
+        return (
+          <div
+            className={`h-10 rounded-lg flex items-center justify-center px-3 gap-1.5 ${config.fullWidth !== false ? "w-full" : "w-auto"}`}
+            style={{ backgroundColor: sbBg, borderRadius: sbRadius }}
+          >
+            <span className="text-sm font-semibold text-white">{sbText}</span>
+            <span className="text-white text-sm">✓</span>
+          </div>
+        );
+      }
+      case "button": {
+        const btnText = (config.text as string) || "Weiter";
+        const btnAction = (config.action as string) || "next";
+        const btnBg = (config.buttonColor as string) || theme.primaryColor || "#6366f1";
+        const btnRadius = (config.borderRadius as string) || theme.borderRadius || "0.5rem";
+        return (
+          <div
+            className={`h-10 rounded-lg flex items-center justify-center px-4 gap-1.5 ${config.fullWidth !== false ? "w-full" : "w-auto"}`}
+            style={{ backgroundColor: btnBg, borderRadius: btnRadius }}
+          >
+            {btnAction === "previous" && <ArrowLeft size={14} className="text-white" />}
+            <span className="text-sm font-semibold text-white">{btnText}</span>
+            {btnAction !== "previous" && <ArrowRight size={14} className="text-white" />}
+          </div>
+        );
+      }
       default:
         return (
           <div className="h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center px-3">
@@ -914,6 +986,7 @@ function BlockPreview({
                 : "hover:ring-1 hover:ring-gray-300 hover:ring-offset-1"
             }`
       }`}
+      style={spacingStyle}
     >
       {/* Selection label badge — edit mode only */}
       {!previewMode && isSelected && (
@@ -1026,6 +1099,9 @@ export default function BuildEditorPage() {
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showQAPanel, setShowQAPanel] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [renamingStepId, setRenamingStepId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // Helper: push history before marking dirty
   const markDirtyWithHistory = useCallback(() => {
@@ -1437,20 +1513,6 @@ export default function BuildEditorPage() {
             priority: edge.priority ?? 0,
           }),
         });
-
-        for (const comp of step.components ?? []) {
-          await fetch(`/api/flows/${flowId}/steps/${step.id}/components/${comp.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              label: comp.label,
-              fieldKey: comp.fieldKey,
-              config: JSON.stringify(comp.config),
-              sortOrder: comp.sortOrder,
-              required: comp.required ?? false,
-            }),
-          });
-        }
       }
 
       markSaved();
@@ -1501,12 +1563,13 @@ export default function BuildEditorPage() {
     const sortOrder =
       atIndex !== undefined ? atIndex : existingComps.length;
 
+    const compDef = (COMPONENT_DEFINITIONS as Record<string, { defaultConfig?: Record<string, unknown> }>)[componentType];
     const newComponent: StepComponent = {
       id: crypto.randomUUID(),
       stepId: targetStepId,
       componentType,
       fieldKey: `${componentType.replace(/-/g, "_")}_${Date.now()}`,
-      config: {},
+      config: compDef?.defaultConfig ? { ...compDef.defaultConfig } : {},
       sortOrder,
       required: false,
     };
@@ -1814,53 +1877,109 @@ export default function BuildEditorPage() {
                               : "border-gray-200 hover:border-gray-300 shadow-sm"
                           }`}
                         >
+                          {/* Thumbnail — scaled BlockPreview */}
                           <button
                             onClick={() => { selectNode(step.id); setSelectedBlockId(null); }}
                             className="w-full text-left"
                           >
-                            {/* Thumbnail preview */}
-                            <div className="relative bg-gray-50 px-2 py-2 min-h-[64px]">
+                            <div className="relative bg-white overflow-hidden" style={{ height: "90px" }}>
+                              {/* Scaled page content */}
                               <div
-                                className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  transform: "scale(0.22)",
+                                  transformOrigin: "top left",
+                                  width: "455%",
+                                  padding: "6px 8px",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                {(step.config as { title?: string }).title && (
+                                  <div className="text-sm font-bold text-gray-800 mb-1 truncate">
+                                    {(step.config as { title?: string }).title}
+                                  </div>
+                                )}
+                                {comps.length === 0 ? (
+                                  <p className="text-gray-300 text-xs italic mt-6 text-center">Leere Seite</p>
+                                ) : (
+                                  comps.slice(0, 8).map((comp, ci) => (
+                                    <BlockPreview
+                                      key={comp.id}
+                                      comp={comp}
+                                      isSelected={false}
+                                      index={ci}
+                                      total={comps.length}
+                                      onSelect={() => {}}
+                                      onMove={() => {}}
+                                      onDuplicate={() => {}}
+                                      onDelete={() => {}}
+                                      theme={currentTheme}
+                                      previewMode={true}
+                                    />
+                                  ))
+                                )}
+                              </div>
+                              {/* Page number badge */}
+                              <div
+                                className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold z-10 ${
                                   isActive ? "bg-[#4C5FD5] text-white" : "bg-gray-300 text-white"
                                 }`}
                               >
                                 {idx + 1}
                               </div>
-                              <div className="ml-6 space-y-1">
-                                {comps.length === 0 ? (
-                                  <div className="h-3 w-16 rounded bg-gray-200" />
-                                ) : (
-                                  comps.slice(0, 4).map((comp) => {
-                                    const color = COMPONENT_COLOR_MAP[comp.componentType] ?? "#6366f1";
-                                    return (
-                                      <div
-                                        key={comp.id}
-                                        className="h-2.5 rounded-sm"
-                                        style={{
-                                          backgroundColor: `${color}25`,
-                                          borderLeft: `2px solid ${color}`,
-                                          width: comp.componentType.includes("heading") ? "60%" : comp.componentType.includes("card") ? "90%" : "75%",
-                                        }}
-                                      />
-                                    );
-                                  })
-                                )}
-                                {comps.length > 4 && (
-                                  <p className="text-[8px] text-gray-400">+{comps.length - 4} weitere</p>
-                                )}
-                              </div>
-                            </div>
-                            {/* Step name */}
-                            <div className="px-2 py-1.5 bg-white border-t border-gray-100">
-                              <p className={`text-[11px] font-semibold truncate ${isActive ? "text-[#4C5FD5]" : step.label ? "text-gray-700" : "text-gray-400 italic"}`}>
-                                {step.label || `Seite ${idx + 1}`}
-                              </p>
-                              <p className="text-[9px] text-gray-400">
-                                {comps.length} Block{comps.length !== 1 ? "s" : ""}
-                              </p>
                             </div>
                           </button>
+                          {/* Step name footer — separate from button so it can be edited inline */}
+                          <div
+                            className="px-2 py-1.5 bg-gray-50 border-t border-gray-100 cursor-pointer"
+                            onClick={() => { selectNode(step.id); setSelectedBlockId(null); }}
+                          >
+                            {renamingStepId === step.id ? (
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onBlur={() => {
+                                  setFlowData((prev) =>
+                                    prev
+                                      ? { ...prev, steps: prev.steps.map((s) => s.id === step.id ? { ...s, label: renameValue } : s) }
+                                      : prev
+                                  );
+                                  markDirtyWithHistory();
+                                  setRenamingStepId(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") e.currentTarget.blur();
+                                  if (e.key === "Escape") setRenamingStepId(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full text-[11px] font-semibold bg-transparent border-b border-indigo-400 outline-none text-gray-700"
+                                placeholder={(step.config as { title?: string }).title || `Seite ${idx + 1}`}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-1 group/name">
+                                <p className={`text-[11px] font-semibold truncate flex-1 ${isActive ? "text-[#4C5FD5]" : step.label ? "text-gray-700" : "text-gray-400 italic"}`}>
+                                  {step.label || (step.config as { title?: string }).title || `Seite ${idx + 1}`}
+                                </p>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRenamingStepId(step.id);
+                                    setRenameValue(step.label || "");
+                                  }}
+                                  className="opacity-0 group-hover/step:opacity-100 text-gray-400 hover:text-indigo-500 transition-opacity shrink-0"
+                                  title="Umbenennen"
+                                >
+                                  <Pencil size={9} />
+                                </button>
+                              </div>
+                            )}
+                            <p className="text-[9px] text-gray-400">
+                              {comps.length} Block{comps.length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
                           {/* Duplicate step button */}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDuplicateStep(step.id); }}
@@ -2058,151 +2177,29 @@ export default function BuildEditorPage() {
 
         {/* Canvas content */}
         <div className="flex items-start justify-center py-8 min-h-full">
-          {isPreviewMode && flowData ? (() => {
-            /* ── Preview Mode: canvas-native preview, identical look to edit mode ── */
-
-            // Component types that navigate on click/selection (no button needed)
-            const AUTO_NAV_TYPES = new Set(["image-choice", "card-selector", "radio-group", "rating", "slider"]);
-
-            const previewSteps = flowData.steps.filter((s) => s.type !== "start" && s.type !== "end");
-            const activeStep = previewSteps.find((s) => s.id === previewStepId) ?? previewSteps[0];
-            const activeComponents = activeStep
-              ? [...(activeStep.components ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
-              : [];
-
-            const doPreviewNext = () => {
-              if (!activeStep) return;
-              // 1. Try edge-based navigation (conditional logic, explicit connections)
-              const nextId = resolveNextStep(activeStep.id, previewAnswers, flowData.edges);
-              if (nextId) {
-                const nextStep = flowData.steps.find((s) => s.id === nextId);
-                if (nextStep && nextStep.type !== "end") {
-                  setPreviewStepId(nextStep.id);
-                  setPreviewHistory((h) => [...h, nextStep.id]);
-                }
-                // nextStep is "end" → flow complete, stay on current step
-                return;
+          {isPreviewMode && flowData ? (
+            /* ── Preview Mode: uses the real FlowRenderer for 1:1 runtime parity ──
+               Validation, shake animations, and navigation are all handled by the
+               same component used in production — no custom duplicate logic needed. */
+            <div
+              className={
+                viewportMode === "mobile" ? "w-[375px]" : viewportMode === "tablet" ? "w-[768px]" : "w-full max-w-2xl"
               }
-              // 2. No edges configured → fall back to sequential order
-              const currentIdx = previewSteps.findIndex((s) => s.id === activeStep.id);
-              if (currentIdx !== -1 && currentIdx < previewSteps.length - 1) {
-                const nextStep = previewSteps[currentIdx + 1];
-                setPreviewStepId(nextStep.id);
-                setPreviewHistory((h) => [...h, nextStep.id]);
-              }
-            };
-            const doPreviewBack = () => {
-              setPreviewHistory((h) => {
-                const trimmed = h.slice(0, -1);
-                if (trimmed.length > 0) setPreviewStepId(trimmed[trimmed.length - 1]);
-                return trimmed;
-              });
-            };
-            const doPreviewJump = (stepId: string) => {
-              const target = flowData.steps.find((s) => s.id === stepId);
-              if (target) {
-                setPreviewStepId(stepId);
-                setPreviewHistory((h) => [...h, stepId]);
-              }
-            };
-
-            return (
-              <div
-                className={`rounded-lg shadow-sm border ${
-                  viewportMode === "mobile" ? "w-[375px]" : viewportMode === "tablet" ? "w-[768px]" : "w-full max-w-2xl"
-                }`}
-                style={{
+            >
+              <FlowRenderer
+                key={flowData.id}
+                flow={flowData}
+                theme={{
+                  primaryColor: currentTheme.primaryColor,
                   backgroundColor: currentTheme.backgroundColor,
+                  borderRadius: currentTheme.borderRadius,
+                  textColor: currentTheme.textColor,
                   borderColor: currentTheme.borderColor,
-                  fontFamily: currentTheme.bodyFont || currentTheme.fontFamily,
-                  color: currentTheme.textColor,
+                  selectionColor: currentTheme.selectionColor,
                 }}
-              >
-                {/* Progress bar */}
-                {flowData.settings?.showProgressBar && previewSteps.length > 1 && (
-                  <div className="px-6 pt-4 pb-0">
-                    <div className="flex gap-1">
-                      {previewSteps.map((s) => (
-                        <div
-                          key={s.id}
-                          className="h-1 flex-1 rounded-full transition-colors"
-                          style={{
-                            backgroundColor: s.id === activeStep?.id
-                              ? currentTheme.primaryColor || "#6366f1"
-                              : currentTheme.borderColor || "#e5e7eb",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Content area — identical to edit mode */}
-                {activeStep ? (
-                  <div className="px-6 py-6 space-y-1">
-                    {(activeStep.config?.title || activeStep.config?.subtitle) && (
-                      <div className="mb-5 pb-4 border-b" style={{ borderColor: currentTheme.borderColor }}>
-                        {activeStep.config?.title && (
-                          <h1
-                            className="text-2xl font-bold"
-                            style={{ color: currentTheme.headingColor, fontFamily: currentTheme.headingFont || currentTheme.fontFamily }}
-                          >
-                            {activeStep.config.title as string}
-                          </h1>
-                        )}
-                        {activeStep.config?.subtitle && (
-                          <p className="text-sm mt-1 opacity-60">{activeStep.config.subtitle as string}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {activeComponents.map((comp) => {
-                      const cfg = comp.config as Record<string, unknown>;
-                      const navAction = cfg?.navigationAction as { type: string; targetStepId?: string } | undefined;
-                      const isBtn = comp.componentType === "button" || comp.componentType === "submit-button";
-                      const isAutoNav = AUTO_NAV_TYPES.has(comp.componentType);
-
-                      return (
-                        <BlockPreview
-                          key={comp.id}
-                          comp={comp}
-                          isSelected={false}
-                          previewMode={true}
-                          index={0}
-                          total={activeComponents.length}
-                          onSelect={() => {
-                            if (isBtn) {
-                              // Buttons: navigate based on their action config
-                              const action = (cfg?.action as string) || "next";
-                              if (action === "back" || action === "previous") doPreviewBack();
-                              else if (action === "jump" && cfg?.targetStepId) doPreviewJump(cfg.targetStepId as string);
-                              else if (action === "submit") { /* treat submit as end of flow */ }
-                              else doPreviewNext();
-                            } else if (navAction && navAction.type !== "none") {
-                              // Only navigate if action is explicitly configured and not "none"
-                              // "none" (or undefined) = no navigation — exactly what the user configured
-                              if (navAction.type === "next" || navAction.type === "conditional") doPreviewNext();
-                              else if (navAction.type === "jump" && navAction.targetStepId) doPreviewJump(navAction.targetStepId);
-                            }
-                            // undefined navAction / type "none" → no navigation (respects "Keine Aktion")
-                            // Record the click as an answer for conditional logic
-                            if (isAutoNav) {
-                              setPreviewAnswers((prev) => ({ ...prev, [comp.fieldKey]: true }));
-                            }
-                          }}
-                          onMove={() => {}}
-                          onDuplicate={() => {}}
-                          onDelete={() => {}}
-                          theme={currentTheme}
-                        />
-                      );
-                    })}
-                    {/* No auto-generated navigation buttons — only flow-defined elements navigate */}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })() : (
+              />
+            </div>
+          ) : (
           <div
             className={`rounded-lg shadow-sm border ${
               viewportMode === "mobile" ? "w-[375px]" : viewportMode === "tablet" ? "w-[768px]" : "w-full max-w-2xl"
@@ -2214,11 +2211,6 @@ export default function BuildEditorPage() {
               color: currentTheme.textColor,
             }}
           >
-            {/* Header add button */}
-            <button className="w-full py-3 border-b border-dashed border-gray-200 text-xs text-gray-400 hover:text-[#4C5FD5] hover:bg-blue-50/30 transition-colors">
-              + Kopfzeile hinzufuegen
-            </button>
-
             {/* Content area */}
             {selectedStep ? (
               <div className="px-6 py-6 space-y-1">
@@ -2279,6 +2271,7 @@ export default function BuildEditorPage() {
                         onDuplicate={() => handleDuplicateComponent(selectedStep.id, comp.id)}
                         onDelete={() => handleDeleteComponent(selectedStep.id, comp.id)}
                         theme={currentTheme}
+                        previewMode={isPreviewMode}
                       />
                     </div>
                   ))
@@ -2293,30 +2286,6 @@ export default function BuildEditorPage() {
                   />
                 )}
 
-                {/* Navigation buttons preview */}
-                <div className="pt-4 mt-2 border-t flex items-center gap-3" style={{ borderColor: currentTheme.borderColor }}>
-                  {flowData && flowData.steps.filter((s) => s.type !== "start" && s.type !== "end").findIndex((s) => s.id === selectedStep.id) > 0 && (
-                    <button
-                      className="px-4 py-2 text-sm font-medium flex items-center gap-1.5"
-                      style={{
-                        color: currentTheme.textColor,
-                        backgroundColor: currentTheme.backgroundColor,
-                        border: `${currentTheme.borderWidth} solid ${currentTheme.borderColor}`,
-                        borderRadius: currentTheme.borderRadius,
-                      }}
-                    >
-                      <ArrowLeft size={14} />
-                      {(selectedStep.config?.backButtonText as string) || "Zurück"}
-                    </button>
-                  )}
-                  <button
-                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-1.5 transition-colors"
-                    style={{ backgroundColor: currentTheme.primaryColor, borderRadius: currentTheme.borderRadius }}
-                  >
-                    {(selectedStep.config?.nextButtonText as string) || "Weiter"}
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
               </div>
             ) : (
               <div className="py-16 text-center">
@@ -2326,10 +2295,6 @@ export default function BuildEditorPage() {
               </div>
             )}
 
-            {/* Footer add button */}
-            <button className="w-full py-3 border-t border-dashed border-gray-200 text-xs text-gray-400 hover:text-[#4C5FD5] hover:bg-blue-50/30 transition-colors">
-              + Fusszeile hinzufuegen
-            </button>
           </div>
           )}
         </div>
@@ -2384,6 +2349,24 @@ export default function BuildEditorPage() {
               onClick={() => selectedNodeId && selectedBlockId && handleDuplicateComponent(selectedNodeId, selectedBlockId)}
               disabled={!selectedBlockId}
             />
+            <ToolbarDivider />
+            <ToolbarDivider />
+            {isPreviewMode ? (
+              <ToolbarButton
+                icon={Pencil}
+                title="Bearbeitungsmodus"
+                onClick={() => setIsPreviewMode(false)}
+                className="text-indigo-400"
+              />
+            ) : (
+              <ToolbarButton
+                icon={Play}
+                title="Vorschaumodus – Flow im Canvas testen"
+                onClick={() => {
+                  setIsPreviewMode(true);
+                }}
+              />
+            )}
             <ToolbarDivider />
             <ToolbarButton
               icon={ShieldCheck}
@@ -2469,40 +2452,6 @@ export default function BuildEditorPage() {
             }}
             selectedComponentId={selectedBlockId}
             onComponentSelect={setSelectedBlockId}
-          />
-        </div>
-      )}
-
-      {/* AI Assistant overlay */}
-      {showAIAssistant && (
-        <AIAssistant
-          flowId={flowId}
-          flowGoal={flowData?.name}
-          selectedStep={selectedStep ?? undefined}
-          selectedComponentType={selectedBlockId
-            ? selectedStep?.components.find((c) => c.id === selectedBlockId)?.componentType
-            : undefined}
-          onApplySuggestion={(value) => {
-            navigator.clipboard.writeText(value).catch(() => {});
-          }}
-          onClose={() => setShowAIAssistant(false)}
-        />
-      )}
-
-      {/* QA Panel overlay */}
-      {showQAPanel && (
-        <div className="absolute right-64 top-0 bottom-0 w-80 bg-white border-l border-gray-200 shadow-xl z-20 flex flex-col overflow-hidden">
-          <QAPanel
-            flowId={flowId}
-            steps={flowData?.steps ?? []}
-            onClose={() => setShowQAPanel(false)}
-            onNavigateToStep={(stepId) => {
-              selectNode(stepId);
-            }}
-            onNavigateToComponent={(stepId, componentId) => {
-              selectNode(stepId);
-              setSelectedBlockId(componentId);
-            }}
           />
         </div>
       )}

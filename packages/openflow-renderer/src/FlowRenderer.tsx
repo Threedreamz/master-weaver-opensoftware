@@ -22,6 +22,8 @@ export interface ResolvedTheme {
   borderColor: string;
   inputBackground: string;
   errorColor: string;
+  /** Color for selected state of cards, image-choices, radio buttons etc. Defaults to primaryColor. */
+  selectionColor: string;
 }
 
 export interface FlowRendererProps {
@@ -52,6 +54,8 @@ export interface FlowRendererProps {
     inputBackground?: string;
     /** Validation errors (default: "#ef4444") */
     errorColor?: string;
+    /** Color for selected state of cards/choices (default: primaryColor) */
+    selectionColor?: string;
   };
   /** Show progress bar */
   showProgress?: boolean;
@@ -267,38 +271,61 @@ export function FlowRenderer({
   const totalSteps = visibleSteps.length;
   const canGoBack = navigationHistory.length > 1;
 
-  const handleNext = async () => {
+  // Validates all required fields on the current step.
+  // Reads answers from the store via getState() to avoid stale-closure issues
+  // when called from within a setTimeout (e.g. auto-nav elements).
+  // Returns true if the step is valid, false otherwise (and sets error state).
+  const validateCurrentStep = (): boolean => {
+    const { answers: currentAnswers, phoneValidity: currentPhoneValidity } =
+      useRendererStore.getState();
     clearErrors();
-
-    // Validate required fields + phone numbers
     let hasErrors = false;
     for (const component of currentStep.components) {
-      if (component.required && !answers[component.fieldKey]) {
+      if (component.required && !currentAnswers[component.fieldKey]) {
         setError(component.fieldKey, "Dieses Feld ist erforderlich");
         hasErrors = true;
       }
-      if (component.componentType === "PhoneInput" && answers[component.fieldKey]) {
-        if (phoneValidity[component.fieldKey] === false) {
+      if (
+        (component.componentType === "PhoneInput" ||
+          component.componentType === "phone-input") &&
+        currentAnswers[component.fieldKey]
+      ) {
+        if (currentPhoneValidity[component.fieldKey] === false) {
           setError(component.fieldKey, "Bitte gib eine gültige Telefonnummer ein");
           hasErrors = true;
         }
       }
     }
-    if (hasErrors) return;
+    return !hasErrors;
+  };
 
-    // Resolve next step
+  const handleNext = async () => {
+    if (!validateCurrentStep()) return;
+
+    // Resolve next step via edges / conditional logic
     const nextStepId = resolveNextStep(currentStepId, answers, flowDefinition.edges);
 
     if (nextStepId) {
       const nextStep = flowDefinition.steps.find((s) => s.id === nextStepId);
-      if (nextStep?.type === "end") {
-        await handleSubmit();
-      } else {
+      // Skip "end" placeholder steps — they signal the flow boundary but are not
+      // real pages. When the next step is "end" we still just advance; the flow
+      // completes naturally via the submit action.
+      if (nextStep && nextStep.type !== "end") {
         goToStep(nextStepId);
       }
+      // If nextStep.type === "end" → do nothing (no accidental submit)
     } else {
-      // No more steps — submit
-      await handleSubmit();
+      // No edge leads forward from here.
+      // Fall through to sequential order: find the next real step in sortOrder.
+      const realSteps = flowDefinition.steps
+        .filter((s) => s.type !== "start" && s.type !== "end")
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const currentIdx = realSteps.findIndex((s) => s.id === currentStepId);
+      if (currentIdx !== -1 && currentIdx < realSteps.length - 1) {
+        goToStep(realSteps[currentIdx + 1].id);
+      }
+      // On the last page with no further steps: do nothing.
+      // The user must click an explicit Submit button to send the form.
     }
   };
 
@@ -346,6 +373,12 @@ export function FlowRenderer({
     borderColor: theme.borderColor || "#d1d5db",
     inputBackground: theme.inputBackground || "#fff",
     errorColor: theme.errorColor || "#ef4444",
+    selectionColor:
+      theme.selectionColor ||
+      flowDefinition.settings.theme.selectionColor ||
+      theme.primaryColor ||
+      flowDefinition.settings.theme.primaryColor ||
+      "#6366f1",
   };
 
   const { primaryColor, borderRadius } = resolvedTheme;
@@ -435,19 +468,10 @@ export function FlowRenderer({
             onBack={goBack}
             onJump={goToStep}
             onSubmit={handleSubmit}
+            onValidate={validateCurrentStep}
           />
         </div>
 
-        <NavigationButtons
-          onNext={handleNext}
-          onBack={goBack}
-          canGoBack={canGoBack}
-          isLastStep={isLastStep}
-          isSubmitting={isSubmitting}
-          primaryColor={primaryColor}
-          submitText={flowDefinition.settings.submitButtonText || "Submit"}
-          theme={resolvedTheme}
-        />
       </div>
 
       {footerConfig?.enabled && (

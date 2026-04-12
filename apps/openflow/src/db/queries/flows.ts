@@ -17,6 +17,31 @@ export async function getFlows(options?: { status?: string; search?: string; lim
   });
 }
 
+export async function getFlowsWithFirstStep(options?: { status?: string; search?: string; limit?: number; offset?: number }) {
+  const conditions = [];
+  if (options?.status) conditions.push(eq(flows.status, options.status as "draft" | "published" | "archived"));
+  if (options?.search) conditions.push(like(flows.name, `%${options.search}%`));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  return db.query.flows.findMany({
+    where,
+    orderBy: [desc(flows.updatedAt)],
+    limit: options?.limit ?? 50,
+    offset: options?.offset ?? 0,
+    with: {
+      steps: {
+        orderBy: [flowSteps.sortOrder],
+        with: {
+          components: {
+            orderBy: [stepComponents.sortOrder],
+          },
+        },
+      },
+    },
+  });
+}
+
 export async function getFlowById(id: string) {
   return db.query.flows.findFirst({
     where: eq(flows.id, id),

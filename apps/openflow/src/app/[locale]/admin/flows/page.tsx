@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { setRequestLocale } from "next-intl/server";
-import { getFlows } from "@/db/queries/flows";
+import { getFlowsWithFirstStep } from "@/db/queries/flows";
 import { db } from "@/db";
-import { flowSteps, submissions, flowEdits, flows } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
-import { format } from "date-fns";
+import { submissions } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { DeleteFlowButton } from "./DeleteFlowButton";
 import { FlowActions } from "./FlowActions";
 import { FlowPreview } from "./FlowPreview";
@@ -13,35 +12,32 @@ interface FlowsPageProps {
   params: Promise<{ locale: string }>;
 }
 
-interface FlowActivity {
-  lastEditor: { name: string; avatar: string | null };
-  contributors: { userId: string; userName: string; userAvatar: string | null }[];
-  lastEditedAt: Date | null;
-  editCount: number;
+function getFlowTheme(settings: string | null): { primaryColor?: string; backgroundColor?: string } {
+  try {
+    return JSON.parse(settings ?? "{}").theme ?? {};
+  } catch {
+    return {};
+  }
 }
 
-function relativeTime(date: Date | null): string {
-  if (!date) return "-";
-  const now = new Date();
-  const diffMs = now.getTime() - new Date(date).getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMinutes < 1) return "gerade eben";
-  if (diffMinutes < 60) return `vor ${diffMinutes} Minuten`;
-  if (diffHours < 24) return `vor ${diffHours} Stunden`;
-  return `vor ${diffDays} Tagen`;
-}
-
-function AvatarCircle({ name }: { name: string }) {
-  const initial = (name ?? "?").charAt(0).toUpperCase();
+function StatusBadge({ status }: { status: string }) {
+  if (status === "published") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+        Veröffentlicht
+      </span>
+    );
+  }
+  if (status === "archived") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+        Archiviert
+      </span>
+    );
+  }
   return (
-    <span
-      className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-bold inline-flex items-center justify-center flex-shrink-0"
-      title={name}
-    >
-      {initial}
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+      Inaktiv
     </span>
   );
 }
@@ -50,63 +46,21 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const flowsList = await getFlows({ limit: 100 });
+  const flowsList = await getFlowsWithFirstStep({ limit: 100 });
 
-  // Fetch step counts, submission counts, and edits in parallel
-  const [stepCounts, submissionCounts, allEdits] = await Promise.all([
-    db
-      .select({ flowId: flowSteps.flowId, count: sql<number>`count(*)` })
-      .from(flowSteps)
-      .groupBy(flowSteps.flowId),
-    db
-      .select({ flowId: submissions.flowId, count: sql<number>`count(*)` })
-      .from(submissions)
-      .groupBy(submissions.flowId),
-    db
-      .select({
-        flowId: flowEdits.flowId,
-        userId: flowEdits.userId,
-        userName: flowEdits.userName,
-        userAvatar: flowEdits.userAvatar,
-        createdAt: flowEdits.createdAt,
-      })
-      .from(flowEdits)
-      .orderBy(desc(flowEdits.createdAt)),
-  ]);
+  const submissionCounts = await db
+    .select({ flowId: submissions.flowId, count: sql<number>`count(*)` })
+    .from(submissions)
+    .groupBy(submissions.flowId);
 
-  const stepCountMap = new Map(stepCounts.map((r) => [r.flowId, r.count]));
   const submissionCountMap = new Map(submissionCounts.map((r) => [r.flowId, r.count]));
-
-  // Build activity map per flow
-  const activityMap = new Map<string, FlowActivity>();
-  for (const edit of allEdits) {
-    if (!activityMap.has(edit.flowId)) {
-      activityMap.set(edit.flowId, {
-        lastEditor: { name: edit.userName ?? "Unbekannt", avatar: edit.userAvatar },
-        contributors: [],
-        lastEditedAt: edit.createdAt,
-        editCount: 0,
-      });
-    }
-    const entry = activityMap.get(edit.flowId)!;
-    entry.editCount++;
-    if (!entry.contributors.some((c) => c.userId === edit.userId)) {
-      entry.contributors.push({
-        userId: edit.userId,
-        userName: edit.userName ?? "Unbekannt",
-        userAvatar: edit.userAvatar,
-      });
-    }
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Flows</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your multi-step flows
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Manage your multi-step flows</p>
         </div>
         <Link
           href={`/${locale}/admin/flows/new`}
@@ -134,121 +88,50 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
           </Link>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Name
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Status
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Steps
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Submissions
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Zuletzt bearbeitet von
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Letzte Änderung
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Mitwirkende
-                </th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">
-                  Created
-                </th>
-                <th className="text-right px-6 py-3 font-medium text-gray-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {flowsList.map((flow) => {
-                const activity = activityMap.get(flow.id);
-                return (
-                  <tr key={flow.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <Link
-                        href={`/${locale}/flow/${flow.id}/build`}
-                        className="font-medium text-gray-900 hover:text-indigo-600 transition-colors"
-                      >
-                        {flow.name}
-                      </Link>
-                      <p className="text-xs text-gray-400 mt-0.5">/{flow.slug}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          flow.status === "published"
-                            ? "bg-green-100 text-green-700"
-                            : flow.status === "archived"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {flow.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {stepCountMap.get(flow.id) ?? 0}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {submissionCountMap.get(flow.id) ?? 0}
-                    </td>
-                    <td className="px-6 py-4">
-                      {activity ? (
-                        <div className="flex items-center gap-2">
-                          <AvatarCircle name={activity.lastEditor.name} />
-                          <span className="text-xs text-gray-600 truncate max-w-[100px]">
-                            {activity.lastEditor.name}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-gray-500">
-                        {activity ? relativeTime(activity.lastEditedAt) : "-"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {activity && activity.contributors.length > 0 ? (
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700"
-                          title={activity.contributors.map((c) => c.userName).join(", ")}
-                        >
-                          {activity.contributors.length} Mitwirkende
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {format(new Date(flow.createdAt), "dd MMM yyyy")}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/${locale}/flow/${flow.id}/build`}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                        >
-                          Edit
-                        </Link>
-                        <DeleteFlowButton flowId={flow.id} flowStatus={flow.status} />
-                        <FlowActions flowId={flow.id} flowStatus={flow.status} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {flowsList.map((flow) => {
+            const theme = getFlowTheme(flow.settings);
+            const bgColor = theme.backgroundColor ?? "#ffffff";
+            const primaryColor = theme.primaryColor ?? "#6366f1";
+            const firstStep = flow.steps.find((s) => s.type === "step") ?? flow.steps[0] ?? null;
+            const submissionCount = submissionCountMap.get(flow.id) ?? 0;
+
+            return (
+              <div key={flow.id} className="group relative">
+                {/* Vorschau-Karte */}
+                <Link href={`/${locale}/flow/${flow.id}/build`}>
+                  <div
+                    className="rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                    style={{ backgroundColor: bgColor, aspectRatio: "4/3" }}
+                  >
+                    <FlowPreview step={firstStep} primaryColor={primaryColor} />
+                  </div>
+                </Link>
+
+                {/* "..." Aktions-Menü — oben rechts, bei Hover sichtbar */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-lg shadow px-1 py-0.5">
+                    <DeleteFlowButton flowId={flow.id} flowStatus={flow.status} />
+                    <FlowActions flowId={flow.id} flowStatus={flow.status} />
+                  </div>
+                </div>
+
+                {/* Metadaten */}
+                <div className="mt-2.5 px-0.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{flow.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <StatusBadge status={flow.status} />
+                    {submissionCount > 0 && (
+                      <span className="text-xs text-gray-400">{submissionCount} Einsendungen</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">/{flow.slug}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

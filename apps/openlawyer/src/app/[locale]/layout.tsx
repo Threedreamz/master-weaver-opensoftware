@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 export function generateStaticParams() {
+  // Return empty during Docker build to skip prerendering (no SQLite available)
+  if (process.env.DOCKER_BUILD) return [];
   return routing.locales.map((locale) => ({ locale }));
 }
 

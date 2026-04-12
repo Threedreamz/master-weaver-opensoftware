@@ -143,6 +143,11 @@ export default function DesignPanel({ theme, onChange }: DesignPanelProps) {
           onChange={(v) => update("primaryColor", v)}
         />
         <ColorField
+          label="Auswahlfarbe"
+          value={theme.selectionColor ?? theme.primaryColor}
+          onChange={(v) => update("selectionColor", v)}
+        />
+        <ColorField
           label="Background"
           value={theme.backgroundColor}
           onChange={(v) => update("backgroundColor", v)}

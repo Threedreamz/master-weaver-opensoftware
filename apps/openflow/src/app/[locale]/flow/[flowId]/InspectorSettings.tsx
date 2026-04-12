@@ -185,6 +185,16 @@ export default function InspectorSettings({
         <p className="text-xs font-semibold text-gray-700">Seite</p>
 
         <div>
+          <label className="block text-xs text-gray-500 mb-1">Seitenname</label>
+          <input
+            value={step.label ?? ""}
+            onChange={(e) => onStepChange({ ...step, label: e.target.value })}
+            placeholder={(step.config as { title?: string }).title || "z.B. Kontaktdaten"}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
           <label className="block text-xs text-gray-500 mb-1">Slug</label>
           <input
             value={(step.config as Record<string, unknown>)?.slug as string ?? ""}

@@ -452,6 +452,7 @@ export const farmCalibrationProcedures = sqliteTable("farm_calibration_procedure
   intervalHours: integer("interval_hours"),
   intervalPrints: integer("interval_prints"),
   instructions: text("instructions", { mode: "json" }).$type<Array<{ stepNumber: number; title: string; description: string; type: string; durationMinutes?: number }>>(),
+  calibrationModelPath: text("calibration_model_path"),
   sortOrder: integer("sort_order").default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
 }, (table) => [

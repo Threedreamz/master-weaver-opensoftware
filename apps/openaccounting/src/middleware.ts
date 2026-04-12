@@ -25,6 +25,11 @@ function isPublicPath(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Let health check through without auth
+  if (pathname === "/api/health") {
+    return NextResponse.next();
+  }
+
   // Let API auth routes through without intl middleware
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();

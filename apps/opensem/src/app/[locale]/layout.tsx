@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export function generateStaticParams() {
+  if (process.env.DOCKER_BUILD) return [];
   return routing.locales.map((locale) => ({ locale }));
 }
 

@@ -64,11 +64,13 @@ if (process.env.NODE_ENV === "development") {
 // @ts-ignore NextAuth v5 type portability
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  adapter: DrizzleAdapter(db, {
-    usersTable: schema.users,
-    accountsTable: schema.accounts,
-    sessionsTable: schema.sessions,
-    verificationTokensTable: schema.verificationTokens,
+  ...(process.env.DOCKER_BUILD ? {} : {
+    adapter: DrizzleAdapter(db, {
+      usersTable: schema.users,
+      accountsTable: schema.accounts,
+      sessionsTable: schema.sessions,
+      verificationTokensTable: schema.verificationTokens,
+    }),
   }),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },

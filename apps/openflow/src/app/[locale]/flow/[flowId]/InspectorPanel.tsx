@@ -22,6 +22,7 @@ interface InspectorPanelProps {
   /** Currently selected block ID from the canvas */
   selectedComponentId: string | null;
   onComponentSelect: (id: string | null) => void;
+  allSteps?: FlowStep[];
 }
 
 export default function InspectorPanel({
@@ -29,6 +30,7 @@ export default function InspectorPanel({
   onStepChange,
   selectedComponentId,
   onComponentSelect,
+  allSteps,
 }: InspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("inhalt");
 
@@ -66,6 +68,7 @@ export default function InspectorPanel({
             onStepChange={onStepChange}
             selectedComponentId={selectedComponentId}
             onComponentSelect={onComponentSelect}
+            allSteps={allSteps}
           />
         )}
         {activeTab === "einstellungen" && (

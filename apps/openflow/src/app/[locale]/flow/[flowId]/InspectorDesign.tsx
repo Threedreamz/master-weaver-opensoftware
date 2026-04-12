@@ -2,6 +2,40 @@
 
 import type { FlowStep } from "@opensoftware/openflow-core";
 
+// ─── Shared mini-component ────────────────────────────────────────────────────
+function ColorField({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <label className="text-[11px] text-gray-500 shrink-0">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={value || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-6 h-6 rounded cursor-pointer border border-gray-200"
+        />
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-24 text-[11px] border border-gray-200 rounded px-1.5 py-1 font-mono"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Inspector Design Tab ("Design") ─────────────────────────────────────────
 
 const FONT_FAMILY_OPTIONS = [

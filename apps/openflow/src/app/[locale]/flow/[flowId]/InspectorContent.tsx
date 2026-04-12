@@ -12,11 +12,15 @@ function ConfigFieldEditor({
   value,
   allConfig,
   onChange,
+  allSteps,
+  currentStepId,
 }: {
   field: ConfigSchemaField;
   value: unknown;
   allConfig: Record<string, unknown>;
   onChange: (key: string, val: unknown) => void;
+  allSteps?: FlowStep[];
+  currentStepId?: string;
 }) {
   // Conditional visibility
   if (field.condition) {
@@ -28,6 +32,28 @@ function ConfigFieldEditor({
 
   switch (field.type) {
     case "text":
+      // targetStepId: show a step dropdown instead of a free-text input
+      if (field.key === "targetStepId" && allSteps && allSteps.length > 0) {
+        return (
+          <div key={field.key}>
+            <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+            <select
+              value={(value as string) ?? ""}
+              onChange={(e) => onChange(field.key, e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Seite wählen…</option>
+              {allSteps
+                .filter((s) => s.type !== "start" && s.type !== "end" && s.id !== currentStepId)
+                .map((s, si) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label || (s.config as { title?: string }).title || `Seite ${si + 1}`}
+                  </option>
+                ))}
+            </select>
+          </div>
+        );
+      }
       return (
         <div key={field.key}>
           <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
@@ -314,49 +340,105 @@ function OptionsEditor({
 
 // ─── Cards editor (card-selector) ────────────────────────────────────────────
 
+interface CardItem {
+  key: string;
+  title: string;
+  subtitle?: string;
+  navigationAction?: { type: string; targetStepId?: string };
+}
+
 function CardsEditor({
   cards,
   onChange,
+  allSteps,
+  currentStepId,
 }: {
-  cards: { key: string; title: string; subtitle?: string }[];
-  onChange: (cards: { key: string; title: string; subtitle?: string }[]) => void;
+  cards: CardItem[];
+  onChange: (cards: CardItem[]) => void;
+  allSteps?: FlowStep[];
+  currentStepId?: string;
 }) {
+  const inputClass =
+    "w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400";
+
   return (
     <div>
       <label className="block text-xs text-gray-500 mb-2">Karten</label>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {cards.map((card, idx) => (
-          <div key={card.key} className="flex gap-2 items-start">
-            <div className="flex-1 space-y-1">
-              <input
-                value={card.title}
-                onChange={(e) => {
-                  const updated = cards.map((c, i) =>
-                    i === idx ? { ...c, title: e.target.value } : c
-                  );
-                  onChange(updated);
-                }}
-                placeholder="Titel"
-                className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              />
-              <input
-                value={card.subtitle ?? ""}
-                onChange={(e) => {
-                  const updated = cards.map((c, i) =>
-                    i === idx ? { ...c, subtitle: e.target.value } : c
-                  );
-                  onChange(updated);
-                }}
-                placeholder="Untertitel (optional)"
-                className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 text-gray-500"
-              />
+          <div key={card.key} className="border border-gray-200 rounded-lg p-2 space-y-1.5 bg-white">
+            <div className="flex gap-2 items-start">
+              <div className="flex-1 space-y-1">
+                <input
+                  value={card.title}
+                  onChange={(e) => {
+                    const updated = cards.map((c, i) =>
+                      i === idx ? { ...c, title: e.target.value } : c
+                    );
+                    onChange(updated);
+                  }}
+                  placeholder="Titel"
+                  className={inputClass}
+                />
+                <input
+                  value={card.subtitle ?? ""}
+                  onChange={(e) => {
+                    const updated = cards.map((c, i) =>
+                      i === idx ? { ...c, subtitle: e.target.value } : c
+                    );
+                    onChange(updated);
+                  }}
+                  placeholder="Untertitel (optional)"
+                  className={`${inputClass} text-gray-500`}
+                />
+              </div>
+              <button
+                onClick={() => onChange(cards.filter((_, i) => i !== idx))}
+                className="text-red-400 hover:text-red-600 text-xs mt-1"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => onChange(cards.filter((_, i) => i !== idx))}
-              className="text-red-400 hover:text-red-600 text-xs mt-1"
-            >
-              ✕
-            </button>
+            {/* Per-card navigation action */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-gray-400 shrink-0">Aktion:</label>
+              <select
+                value={card.navigationAction?.type ?? "none"}
+                onChange={(e) => {
+                  const type = e.target.value;
+                  const updated = cards.map((c, i) =>
+                    i === idx ? { ...c, navigationAction: { type, targetStepId: "" } } : c
+                  );
+                  onChange(updated);
+                }}
+                className="flex-1 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              >
+                <option value="none">Keine Aktion</option>
+                <option value="next">Nächste Seite</option>
+                <option value="jump">Zur Seite springen</option>
+              </select>
+            </div>
+            {card.navigationAction?.type === "jump" && allSteps && (
+              <select
+                value={card.navigationAction?.targetStepId ?? ""}
+                onChange={(e) => {
+                  const updated = cards.map((c, i) =>
+                    i === idx ? { ...c, navigationAction: { type: "jump", targetStepId: e.target.value } } : c
+                  );
+                  onChange(updated);
+                }}
+                className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              >
+                <option value="">Seite wählen...</option>
+                {allSteps
+                  .filter((s) => s.type !== "start" && s.type !== "end" && s.id !== currentStepId)
+                  .map((s, si) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label || `Seite ${si + 1}`}
+                    </option>
+                  ))}
+              </select>
+            )}
           </div>
         ))}
         <button
@@ -381,18 +463,29 @@ interface ImageChoiceOption {
   value: string;
   label: string;
   imageUrl?: string;
+  subtitle?: string;
+  navigationAction?: { type: string; targetStepId?: string };
 }
 
 function ImageChoiceEditor({
   options,
   onChange,
+  allSteps,
+  currentStepId,
+  showDescription,
+  onShowDescriptionChange,
 }: {
   options: ImageChoiceOption[];
   onChange: (opts: ImageChoiceOption[]) => void;
+  allSteps?: FlowStep[];
+  currentStepId?: string;
+  showDescription: boolean;
+  onShowDescriptionChange: (v: boolean) => void;
 }) {
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [iconLibOpen, setIconLibOpen] = useState(false);
   const [iconLibTarget, setIconLibTarget] = useState<number | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   async function handleImageUpload(idx: number, file: File) {
     const formData = new FormData();
@@ -410,67 +503,42 @@ function ImageChoiceEditor({
 
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-2">Auswahloptionen</label>
-      <div className="space-y-3">
-        {options.map((opt, idx) => (
-          <div key={opt.value + idx} className="border border-gray-200 rounded-lg p-2 space-y-2">
-            {/* Image preview / upload */}
-            <div className="relative">
-              {opt.imageUrl ? (
-                <div className="relative group">
-                  <img
-                    src={opt.imageUrl}
-                    alt={opt.label}
-                    className="w-full h-20 object-cover rounded bg-gray-100"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                  <button
-                    onClick={() => {
-                      const updated = options.map((o, i) =>
-                        i === idx ? { ...o, imageUrl: undefined } : o
-                      );
-                      onChange(updated);
-                    }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    ref={(el) => { fileInputRefs.current[idx] = el; }}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleImageUpload(idx, f);
-                      e.target.value = "";
-                    }}
-                  />
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => fileInputRefs.current[idx]?.click()}
-                      className="flex-1 h-16 border border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-xs gap-1.5"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      Hochladen
-                    </button>
-                    <button
-                      onClick={() => { setIconLibTarget(idx); setIconLibOpen(true); }}
-                      className="h-16 px-3 border border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[10px] gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                      Bibliothek
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+      {/* Header with toggle */}
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs font-medium text-gray-700">Optionen</label>
+        <button
+          onClick={() => onShowDescriptionChange(!showDescription)}
+          className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-700"
+        >
+          <span>Beschreibung anzeigen</span>
+          <div className={`w-7 h-4 rounded-full transition-colors ${showDescription ? "bg-indigo-500" : "bg-gray-200"} relative`}>
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showDescription ? "translate-x-3.5" : "translate-x-0.5"}`} />
+          </div>
+        </button>
+      </div>
 
-            {/* Label + Value */}
-            <div className="flex gap-2">
+      <div className="space-y-1.5">
+        {options.map((opt, idx) => (
+          <div key={opt.value + idx}>
+            {/* Compact row */}
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+              {/* Image thumbnail / picker toggle */}
+              <button
+                onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                className="w-7 h-7 rounded flex items-center justify-center border border-gray-200 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50 transition-colors flex-shrink-0 overflow-hidden"
+                title="Bild hinzufügen"
+              >
+                {opt.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={opt.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Label input */}
               <input
                 value={opt.label}
                 onChange={(e) => {
@@ -479,31 +547,125 @@ function ImageChoiceEditor({
                   );
                   onChange(updated);
                 }}
-                placeholder="Label"
-                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                placeholder={`Option ${idx + 1}`}
+                className="flex-1 text-sm border-none outline-none bg-transparent text-gray-800 placeholder-gray-400"
               />
+
+              {/* Delete */}
               <button
                 onClick={() => onChange(options.filter((_, i) => i !== idx))}
-                className="text-red-400 hover:text-red-600 text-xs px-1"
+                className="text-gray-300 hover:text-red-400 transition-colors text-xs flex-shrink-0"
               >
                 ✕
               </button>
             </div>
 
-            {/* Image URL fallback */}
-            <input
-              value={opt.imageUrl ?? ""}
-              onChange={(e) => {
-                const updated = options.map((o, i) =>
-                  i === idx ? { ...o, imageUrl: e.target.value || undefined } : o
-                );
-                onChange(updated);
-              }}
-              placeholder="oder Bild-URL eingeben"
-              className="w-full text-[10px] border border-gray-100 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 text-gray-400"
-            />
+            {/* Description field (optional) */}
+            {showDescription && (
+              <input
+                value={opt.subtitle ?? ""}
+                onChange={(e) => {
+                  const updated = options.map((o, i) =>
+                    i === idx ? { ...o, subtitle: e.target.value } : o
+                  );
+                  onChange(updated);
+                }}
+                placeholder="Beschreibung (optional)"
+                className="w-full mt-1 text-xs border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 text-gray-500"
+              />
+            )}
+
+            {/* Inline image picker — expands when thumbnail clicked */}
+            {expandedIdx === idx && (
+              <div className="mt-1 border border-gray-200 rounded-lg p-2 bg-gray-50 space-y-1.5">
+                <input
+                  ref={(el) => { fileInputRefs.current[idx] = el; }}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImageUpload(idx, f);
+                    e.target.value = "";
+                    setExpandedIdx(null);
+                  }}
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => fileInputRefs.current[idx]?.click()}
+                    className="flex-1 h-8 border border-dashed border-gray-300 rounded text-xs text-gray-500 flex items-center justify-center gap-1 hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Hochladen
+                  </button>
+                  <button
+                    onClick={() => { setIconLibTarget(idx); setIconLibOpen(true); }}
+                    className="flex-1 h-8 border border-dashed border-gray-300 rounded text-xs text-gray-500 flex items-center justify-center gap-1 hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                    Bibliothek
+                  </button>
+                  {opt.imageUrl && (
+                    <button
+                      onClick={() => {
+                        const updated = options.map((o, i) =>
+                          i === idx ? { ...o, imageUrl: undefined } : o
+                        );
+                        onChange(updated);
+                        setExpandedIdx(null);
+                      }}
+                      className="h-8 px-2 border border-dashed border-red-200 rounded text-xs text-red-400 hover:border-red-400 hover:text-red-500 transition-colors"
+                    >
+                      Entfernen
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Per-option navigation action */}
+            <div className="flex items-center gap-1.5 mt-1 px-1">
+              <label className="text-[10px] text-gray-400 shrink-0">Aktion:</label>
+              <select
+                value={opt.navigationAction?.type ?? "none"}
+                onChange={(e) => {
+                  const type = e.target.value;
+                  const updated = options.map((o, i) =>
+                    i === idx ? { ...o, navigationAction: { type, targetStepId: "" } } : o
+                  );
+                  onChange(updated);
+                }}
+                className="flex-1 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              >
+                <option value="none">Keine Aktion</option>
+                <option value="next">Nächste Seite</option>
+                <option value="jump">Zur Seite springen</option>
+              </select>
+              {opt.navigationAction?.type === "jump" && allSteps && (
+                <select
+                  value={opt.navigationAction?.targetStepId ?? ""}
+                  onChange={(e) => {
+                    const updated = options.map((o, i) =>
+                      i === idx ? { ...o, navigationAction: { type: "jump", targetStepId: e.target.value } } : o
+                    );
+                    onChange(updated);
+                  }}
+                  className="flex-1 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                >
+                  <option value="">Seite...</option>
+                  {allSteps
+                    .filter((s) => s.type !== "start" && s.type !== "end" && s.id !== currentStepId)
+                    .map((s, si) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label || `Seite ${si + 1}`}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </div>
           </div>
         ))}
+
         <button
           onClick={() =>
             onChange([
@@ -511,9 +673,9 @@ function ImageChoiceEditor({
               { value: `option${options.length + 1}`, label: `Option ${options.length + 1}` },
             ])
           }
-          className="w-full text-xs text-indigo-600 border border-dashed border-indigo-300 rounded-lg py-1.5 hover:bg-indigo-50 transition-colors"
+          className="w-full text-sm text-gray-600 border border-gray-200 rounded-lg py-2 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 mt-1"
         >
-          + Auswahl hinzufügen
+          <span className="text-gray-400">+</span> Hinzufügen
         </button>
       </div>
 
@@ -715,6 +877,56 @@ function AmountsEditor({
   );
 }
 
+// ─── Icon Settings Inline ─────────────────────────────────────────────────────
+
+const ICON_SIZE_OPTIONS = [
+  { value: "", label: "Standard (1.75rem)" },
+  { value: "1rem", label: "Klein (1rem)" },
+  { value: "1.25rem", label: "Mittel-klein (1.25rem)" },
+  { value: "1.75rem", label: "Normal (1.75rem)" },
+  { value: "2.5rem", label: "Groß (2.5rem)" },
+  { value: "3rem", label: "Sehr groß (3rem)" },
+  { value: "4rem", label: "Extra groß (4rem)" },
+];
+
+function IconSettingsInline({
+  styleOverrides,
+  onOverrideChange,
+}: {
+  styleOverrides: Record<string, string>;
+  onOverrideChange: (key: string, val: string) => void;
+}) {
+  const inputClass =
+    "w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400";
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-gray-100">
+      <p className="text-xs font-medium text-gray-500">Icon-Einstellungen</p>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Icon-Größe</label>
+        <select
+          value={styleOverrides.iconSize ?? ""}
+          onChange={(e) => onOverrideChange("iconSize", e.target.value)}
+          className={inputClass}
+        >
+          {ICON_SIZE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Icon-Farbe</label>
+        <input
+          type="color"
+          value={styleOverrides.iconColor || "#6366f1"}
+          onChange={(e) => onOverrideChange("iconColor", e.target.value)}
+          className="w-full h-8 rounded border border-gray-200 cursor-pointer"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Inspector Content ───────────────────────────────────────────────────
 
 interface InspectorContentProps {
@@ -724,6 +936,7 @@ interface InspectorContentProps {
   selectedComponentId: string | null;
   /** Called when the user selects/deselects a component inside the inspector */
   onComponentSelect: (id: string | null) => void;
+  allSteps?: FlowStep[];
 }
 
 const COMPONENT_TYPE_LABELS: Record<string, string> = {
@@ -753,6 +966,7 @@ export default function InspectorContent({
   onStepChange,
   selectedComponentId,
   onComponentSelect,
+  allSteps,
 }: InspectorContentProps) {
   function updateStepConfig(key: string, value: unknown) {
     onStepChange({ ...step, config: { ...step.config, [key]: value } });
@@ -816,6 +1030,8 @@ export default function InspectorContent({
             comp={selectedComponent}
             onConfigChange={(key, val) => updateComponentConfig(selectedComponent.id, key, val)}
             onFieldChange={(field, val) => updateComponentField(selectedComponent.id, field, val)}
+            allSteps={allSteps}
+            currentStepId={step.id}
           />
           {/* Delete button */}
           <button
@@ -866,25 +1082,6 @@ export default function InspectorContent({
           />
         </div>
 
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">„Weiter"-Button Text</label>
-          <input
-            value={(step.config as Record<string, unknown>)?.nextButtonText as string ?? ""}
-            onChange={(e) => updateStepConfig("nextButtonText", e.target.value)}
-            placeholder="Weiter"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">„Zurück"-Button Text</label>
-          <input
-            value={(step.config as Record<string, unknown>)?.backButtonText as string ?? ""}
-            onChange={(e) => updateStepConfig("backButtonText", e.target.value)}
-            placeholder="Zurück"
-            className={inputClass}
-          />
-        </div>
       </div>
 
       {/* ── Components List ── */}
@@ -929,10 +1126,14 @@ function ComponentEditor({
   comp,
   onConfigChange,
   onFieldChange,
+  allSteps,
+  currentStepId,
 }: {
   comp: StepComponent;
   onConfigChange: (key: string, val: unknown) => void;
   onFieldChange: (field: keyof StepComponent, val: unknown) => void;
+  allSteps?: FlowStep[];
+  currentStepId?: string;
 }) {
   const schemaDef = (COMPONENT_DEFINITIONS as Record<string, { configSchema: readonly ConfigSchemaField[] }>)[comp.componentType];
   const schema = schemaDef?.configSchema ?? [];
@@ -950,6 +1151,8 @@ function ComponentEditor({
           value={comp.config[field.key]}
           allConfig={comp.config}
           onChange={onConfigChange}
+          allSteps={allSteps}
+          currentStepId={currentStepId}
         />
       ))}
 
@@ -963,18 +1166,46 @@ function ComponentEditor({
 
       {/* Image choice editor */}
       {comp.componentType === "image-choice" && (
-        <ImageChoiceEditor
-          options={(comp.config.options as ImageChoiceOption[]) ?? []}
-          onChange={(opts) => onConfigChange("options", opts)}
-        />
+        <>
+          <ImageChoiceEditor
+            options={(comp.config.options as ImageChoiceOption[]) ?? []}
+            onChange={(opts) => onConfigChange("options", opts)}
+            showDescription={(comp.config.showDescription as boolean) ?? false}
+            onShowDescriptionChange={(v) => onConfigChange("showDescription", v)}
+            allSteps={allSteps}
+            currentStepId={currentStepId}
+          />
+          <IconSettingsInline
+            styleOverrides={(comp.config.styleOverrides as Record<string, string>) ?? {}}
+            onOverrideChange={(key, val) => {
+              const existing = (comp.config.styleOverrides as Record<string, string>) ?? {};
+              const updated = { ...existing };
+              if (val === "") { delete updated[key]; } else { updated[key] = val; }
+              onConfigChange("styleOverrides", Object.keys(updated).length > 0 ? updated : undefined);
+            }}
+          />
+        </>
       )}
 
       {/* Cards editor for card-selector */}
       {comp.componentType === "card-selector" && (
-        <CardsEditor
-          cards={(comp.config.cards as { key: string; title: string; subtitle?: string }[]) ?? []}
-          onChange={(cards) => onConfigChange("cards", cards)}
-        />
+        <>
+          <CardsEditor
+            cards={(comp.config.cards as CardItem[]) ?? []}
+            onChange={(cards) => onConfigChange("cards", cards)}
+            allSteps={allSteps}
+            currentStepId={currentStepId}
+          />
+          <IconSettingsInline
+            styleOverrides={(comp.config.styleOverrides as Record<string, string>) ?? {}}
+            onOverrideChange={(key, val) => {
+              const existing = (comp.config.styleOverrides as Record<string, string>) ?? {};
+              const updated = { ...existing };
+              if (val === "") { delete updated[key]; } else { updated[key] = val; }
+              onConfigChange("styleOverrides", Object.keys(updated).length > 0 ? updated : undefined);
+            }}
+          />
+        </>
       )}
 
       {/* Pricing cards editor */}

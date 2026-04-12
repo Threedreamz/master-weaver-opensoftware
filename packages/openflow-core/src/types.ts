@@ -65,6 +65,8 @@ export interface FlowTheme {
   borderColor: string;
   borderWidth: string;
   transitionStyle: "none" | "fade" | "slide";
+  /** Color used for selected state of cards, image-choices, radio buttons etc. Defaults to primaryColor. */
+  selectionColor?: string;
 }
 
 export interface FlowStep {

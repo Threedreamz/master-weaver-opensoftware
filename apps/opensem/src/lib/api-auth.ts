@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { type UserRole, checkRole, checkPermission, toUserRole } from "@opensoftware/config/rbac";
-import { getPermissionsForRole, OPENSEO_PERMISSIONS } from "@opensoftware/config/rbac";
+import { getPermissionsForRole, OPENSEM_PERMISSIONS } from "@opensoftware/config/rbac";
 
 /**
  * Server-side auth guard for API routes.
@@ -27,7 +27,7 @@ export async function requireAuth(options?: {
   }
 
   const role = toUserRole(session.user.role);
-  const permissions = getPermissionsForRole(OPENSEO_PERMISSIONS, role);
+  const permissions = getPermissionsForRole(OPENSEM_PERMISSIONS, role);
 
   const user = {
     id: session.user.id,

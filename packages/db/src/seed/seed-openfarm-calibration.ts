@@ -59,8 +59,9 @@ export async function seedOpenfarmCalibration(db: DbClient) {
       requiresPrint: true,
       estimatedDurationMinutes: 540,
       intervalPrints: 100,
+      calibrationModelPath: "/calibration/fuse1_z_calibration.stl",
       instructions: [
-        { stepNumber: 1, title: "Download Z test file", description: "Download the Z scaling calibration file", type: "instruction" },
+        { stepNumber: 1, title: "Download Z test file", description: "Download the Z scaling calibration file (Stufenblock 120×50×120mm, 6 Stufen à 20mm)", type: "instruction" },
         { stepNumber: 2, title: "Print without modifications", description: "Print the test file as-is", type: "print", durationMinutes: 360 },
         { stepNumber: 3, title: "Cool down", description: "Allow standard cooling procedure", type: "wait", durationMinutes: 120 },
         { stepNumber: 4, title: "Extract and clean", description: "Remove and clean test piece", type: "instruction" },

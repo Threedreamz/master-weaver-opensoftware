@@ -4,8 +4,14 @@ import { randomUUID } from "crypto";
 import { checkApiAuth } from "@/lib/api-auth";
 import { db } from "@/db";
 import { submissions, webhooks, flowNotifications } from "@/db/schema";
+import { sendMail } from "@/lib/mailer";
 
-// TODO: Replace console.log with actual email sending via SMTP (e.g., nodemailer) when configured
+// ─── Formats all answers as a readable plain-text table for email bodies ──────
+function formatAnswers(answers: Record<string, unknown>): string {
+  return Object.entries(answers)
+    .map(([key, val]) => `${key}: ${String(val ?? "")}`)
+    .join("\n");
+}
 
 async function triggerAutoReplyNotifications(
   flowId: string,
@@ -40,7 +46,7 @@ async function triggerAutoReplyNotifications(
           continue;
         }
 
-        // Replace placeholders in subject and body
+        // Replace {fieldKey} placeholders in subject and body
         let resolvedSubject = config.subject || "";
         let resolvedBody = config.body || "";
         for (const [key, value] of Object.entries(answers)) {
@@ -50,10 +56,7 @@ async function triggerAutoReplyNotifications(
           resolvedBody = resolvedBody.replaceAll(placeholder, replacement);
         }
 
-        // TODO: Replace with actual SMTP sending (e.g., nodemailer)
-        console.log(
-          `[Auto-Reply] To: ${submitterEmail}, Subject: ${resolvedSubject}, Body: ${resolvedBody}`
-        );
+        await sendMail({ to: submitterEmail, subject: resolvedSubject, text: resolvedBody });
       } catch (err) {
         console.error(
           "[Auto-Reply Error]",
@@ -98,20 +101,19 @@ async function triggerRoutingNotifications(
 
         for (const rule of config.rules) {
           const answerValue = String(answers[rule.fieldKey] ?? "");
-          let matches = false;
-
-          if (rule.operator === "equals") {
-            matches = answerValue === rule.value;
-          } else if (rule.operator === "contains") {
-            matches = answerValue.toLowerCase().includes(rule.value.toLowerCase());
-          }
+          const matches =
+            rule.operator === "equals"
+              ? answerValue === rule.value
+              : answerValue.toLowerCase().includes(rule.value.toLowerCase());
 
           if (matches) {
-            const subject = rule.subject || `Routing-Benachrichtigung fuer Submission ${submissionId}`;
-            // TODO: Replace with actual SMTP sending (e.g., nodemailer)
-            console.log(
-              `[Routing] Field ${rule.fieldKey} = ${answerValue} → sending to ${rule.emails.join(", ")}, Subject: ${subject}`
-            );
+            const subject =
+              rule.subject || `Neue Einsendung — Routing-Benachrichtigung`;
+            const text =
+              `Eine neue Einsendung (${submissionId}) hat die Routing-Bedingung erfüllt:\n` +
+              `Feld: ${rule.fieldKey} = ${answerValue}\n\n` +
+              `Antworten:\n${formatAnswers(answers)}`;
+            await sendMail({ to: rule.emails, subject, text });
           }
         }
       } catch (err) {
@@ -152,14 +154,17 @@ async function triggerEmailNotifications(
           subject?: string;
         };
 
-        const subject =
-          config.subject || `Neue Einsendung fuer Flow ${flowId}`;
+        const subject = config.subject || `Neue Einsendung erhalten`;
+        const completedAt =
+          (metadata?.completedAt as string) ?? new Date().toISOString();
+        const text =
+          `Es ist eine neue Einsendung eingegangen.\n\n` +
+          `Einsendungs-ID: ${submissionId}\n` +
+          `Flow-ID: ${flowId}\n` +
+          `Eingegangen: ${completedAt}\n\n` +
+          `Antworten:\n${formatAnswers(answers)}`;
 
-        for (const email of config.emails) {
-          console.log(
-            `[Email Notification] To: ${email}, Subject: ${subject}, Body: New submission ${submissionId} - Answers: ${JSON.stringify(answers)}, Metadata: ${JSON.stringify(metadata ?? {})}`
-          );
-        }
+        await sendMail({ to: config.emails, subject, text });
       } catch (err) {
         console.error(
           "[Email Notification Error]",
