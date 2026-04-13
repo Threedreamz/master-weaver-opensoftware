@@ -1,8 +1,10 @@
 import createIntlMiddleware from "next-intl/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { routing } from "@/i18n/routing";
-import { auth } from "@/lib/auth";
+
+const secret = process.env.AUTH_SECRET;
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -27,9 +29,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Other API routes: check authentication via JWT (edge-compatible)
   if (pathname.startsWith("/api")) {
-    const session = await auth();
-    if (!session?.user) {
+    const token = await getToken({ req: request, secret });
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.next();
@@ -39,11 +42,9 @@ export async function middleware(request: NextRequest) {
     return intlMiddleware(request);
   }
 
-  // TODO: Add role-based route protection for production deployments.
-  // Admin routes (e.g., /admin/*) should check session.user.role === "admin"
-  // and return 403 Forbidden for unauthorized roles.
-  const session = await auth();
-  if (!session?.user) {
+  // Protected pages: require authentication via JWT (edge-compatible)
+  const token = await getToken({ req: request, secret });
+  if (!token) {
     const localeMatch = pathname.match(/^\/([a-z]{2})(\/|$)/);
     const locale = localeMatch?.[1] || routing.defaultLocale;
     const loginUrl = new URL(`/${locale}/login`, request.url);
