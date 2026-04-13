@@ -25,15 +25,14 @@ trackingRoutes.get("/t/o/:eventId", async (c) => {
     // Silently fail -- don't break the pixel response
   }
 
-  return new Response(TRACKING_PIXEL, {
-    headers: {
-      "Content-Type": "image/gif",
-      "Cache-Control":
-        "no-store, no-cache, must-revalidate, proxy-revalidate",
-      Pragma: "no-cache",
-      Expires: "0",
-    },
-  });
+  c.header("Content-Type", "image/gif");
+  c.header(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate",
+  );
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
+  return c.body(TRACKING_PIXEL);
 });
 
 // GET /api/tracking/t/c/:eventId -- click tracking
