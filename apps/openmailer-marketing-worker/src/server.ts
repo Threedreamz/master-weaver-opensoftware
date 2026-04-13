@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { serve } from "@hono/node-server";
 import { redisConnection, QUEUE_NAMES } from "@opensoftware/openmailer-queue";
 import { processSendCampaign } from "./jobs/send-campaign.js";
@@ -83,9 +83,10 @@ for (const { name, worker } of workers) {
 
 const app = new Hono();
 
-app.get("/health", (c) => {
+const healthHandler = (c: Context) => {
   const status = {
     status: "ok",
+    app: "openmailer-worker",
     service: "openmailer-marketing-worker",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
@@ -95,13 +96,16 @@ app.get("/health", (c) => {
     })),
   };
   return c.json(status);
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 app.get("/", (c) => {
   return c.json({
     service: "openmailer-marketing-worker",
     version: "1.0.0",
-    endpoints: ["/health"],
+    endpoints: ["/health", "/api/health"],
   });
 });
 
