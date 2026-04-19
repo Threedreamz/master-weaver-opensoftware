@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat
 RUN npm install -g turbo@^2.5.0
 WORKDIR /app
 COPY . .
-RUN turbo prune openslicer --docker
+RUN turbo prune @opensoftware/openslicer-app --docker
 
 # -- Stage 2: Install dependencies from pruned lockfile ------------------------
 FROM node:22-alpine AS installer
@@ -39,7 +39,7 @@ RUN mkdir -p data drizzle && npx drizzle-kit generate
 
 # Build the Next.js app (standalone output)
 WORKDIR /app
-RUN pnpm turbo build --filter=openslicer
+RUN pnpm turbo build --filter=@opensoftware/openslicer-app
 
 # Ensure optional dirs exist so COPY in runner stage doesn't fail
 RUN mkdir -p /app/apps/openslicer/public
