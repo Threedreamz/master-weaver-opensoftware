@@ -85,6 +85,36 @@ export async function register() {
             `SELECT sql FROM sqlite_master WHERE type='table' AND name='slicer_history'`,
           )
           .get() as { sql?: string } | undefined;
+
+        // Diagnostic: list every FK clause (REFERENCES) still on slicer_history.
+        // Catches not just `profile_id REFERENCES slicer_profiles` (the original
+        // footgun) but any column → table FK — so future "FOREIGN KEY
+        // constraint failed" incidents can be diagnosed from boot logs alone
+        // without spelunking the volume via `railway ssh + sqlite3`.
+        //
+        // Matches e.g. `profile_id text REFERENCES slicer_profiles(id)` and
+        // `model_id text REFERENCES slicer_models(id)`. Case-insensitive,
+        // multi-line; captures the column word preceding REFERENCES and the
+        // referenced table so the log entry is self-describing.
+        if (row?.sql) {
+          const fkRegex = /(\w+)\s+[^,()]*REFERENCES\s+(\w+)\s*\(\s*(\w+)\s*\)/gi;
+          const fks: Array<{ column: string; refTable: string; refColumn: string }> = [];
+          let match: RegExpExecArray | null;
+          while ((match = fkRegex.exec(row.sql)) !== null) {
+            fks.push({ column: match[1], refTable: match[2], refColumn: match[3] });
+          }
+          if (fks.length === 0) {
+            console.log(`[openslicer:boot] slicer_history FKs report: none`);
+          } else {
+            const summary = fks
+              .map((f) => `${f.column}→${f.refTable}.${f.refColumn}`)
+              .join(", ");
+            console.log(
+              `[openslicer:boot] slicer_history FKs report: ${fks.length} FK(s) — ${summary}`,
+            );
+          }
+        }
+
         const needsDrop =
           row?.sql && /profile_id[^,]*REFERENCES\s+slicer_profiles/i.test(row.sql);
         if (needsDrop) {
@@ -99,7 +129,31 @@ export async function register() {
           probe.exec(sql);
           console.log(`[openslicer:boot] drop-history-profile-fk migration complete`);
         } else {
-          console.log(`[openslicer:boot] slicer_history FK already absent, skipping drop migration`);
+          console.log(`[openslicer:boot] slicer_history profile_id FK already absent, skipping drop migration`);
+        }
+
+        // Sanity: count orphan slicer_history rows whose model_id points
+        // at a now-missing slicer_models row. Surfaces volume-corruption
+        // issues (e.g. partial reset) without blocking boot.
+        try {
+          const orphan = probe
+            .prepare(
+              `SELECT COUNT(*) AS n FROM slicer_history
+               WHERE model_id IS NOT NULL
+                 AND model_id NOT IN (SELECT id FROM slicer_models)`,
+            )
+            .get() as { n?: number } | undefined;
+          const orphanCount = orphan?.n ?? 0;
+          if (orphanCount > 0) {
+            console.warn(
+              `[openslicer:boot] WARNING — ${orphanCount} slicer_history row(s) reference missing slicer_models ids. ` +
+                `Volume may have been partially reset. New slices against those ids will 400.`,
+            );
+          } else {
+            console.log(`[openslicer:boot] slicer_history model_id integrity OK`);
+          }
+        } catch (intErr) {
+          console.warn(`[openslicer:boot] orphan check skipped:`, intErr);
         }
       } finally {
         probe.close();

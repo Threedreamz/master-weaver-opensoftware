@@ -1,6 +1,9 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "@opensoftware/db/opencad";
+import * as opencadSchema from "@opensoftware/db/opencad";
+import * as sharedSchema from "@opensoftware/db/shared";
+
+const schema = { ...sharedSchema, ...opencadSchema };
 
 const dbPath = (process.env.DATABASE_URL || "./data/opencad.db").replace(/^file:/, "");
 

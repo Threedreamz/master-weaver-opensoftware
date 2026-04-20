@@ -14,7 +14,7 @@ import { getProfileById } from "../../../db/queries/profiles";
 import { getProcessProfileById } from "../../../db/queries/process-profiles";
 import { getPrinterProfileById } from "../../../db/queries/printer-profiles";
 import { getFilamentProfileById } from "../../../db/queries/filament-profiles";
-import { createHistory, updateHistoryStatus } from "../../../db/queries/history";
+import { createHistory, updateHistoryStatus, type SlicerHistoryRow } from "../../../db/queries/history";
 import { db } from "../../../db";
 import { slicerGcodes } from "../../../db/schema";
 
@@ -50,7 +50,14 @@ export async function POST(request: Request) {
   // Look up model
   const model = getModelById(modelId);
   if (!model) {
-    return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "Model not found",
+        detail: `No slicer_models row with id=${modelId}. Re-upload the file and retry.`,
+        modelId,
+      },
+      { status: 404 },
+    );
   }
 
   // Look up profile (check legacy table first, then process profiles)
@@ -85,14 +92,79 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  // Create history record (pending)
-  const history = createHistory({
-    modelId,
-    profileId,
-    status: "pending",
-    slicerEngine: engine,
-    technology: profile.technology ?? "fdm",
-  });
+  // Defensive FK pre-check: re-verify the model row still exists RIGHT BEFORE
+  // the INSERT into slicer_history. The table still carries a
+  // `model_id REFERENCES slicer_models(id)` FK (see packages/db/src/openslicer.schema.ts
+  // L155) — if the row was deleted between the initial lookup above and this
+  // insert (volume recreated by a redeploy, parallel DELETE, reset sqlite
+  // file, etc.), better-sqlite3 throws `SQLITE_CONSTRAINT_FOREIGNKEY` with
+  // a useless stack trace. Catch it here with a clearer 400 so operators can
+  // tell at a glance which id failed instead of spelunking the volume.
+  const modelRecheck = getModelById(modelId);
+  if (!modelRecheck) {
+    return NextResponse.json(
+      {
+        error: "Model vanished before slice",
+        detail:
+          `Model ${modelId} existed at lookup but is no longer in slicer_models. ` +
+          `The most likely causes are a volume reset between upload and slice, ` +
+          `or a stale id in client state. Re-upload the file and retry.`,
+        modelId,
+      },
+      { status: 400 },
+    );
+  }
+  // Profile re-check: slicer_history.profile_id is polymorphic + FK-less
+  // today, so no FK here, but verify the row still exists so we fail loud
+  // instead of inserting a dangling reference that breaks history queries.
+  const profileRecheckLegacy = getProfileById(profileId);
+  const profileRecheckProcess = profileRecheckLegacy
+    ? null
+    : getProcessProfileById(profileId);
+  if (!profileRecheckLegacy && !profileRecheckProcess) {
+    return NextResponse.json(
+      {
+        error: "Profile vanished before slice",
+        detail:
+          `Profile ${profileId} existed at lookup but is no longer in ` +
+          `slicer_profiles or slicer_process_profiles. Pick another profile.`,
+        profileId,
+      },
+      { status: 400 },
+    );
+  }
+
+  // Create history record (pending). Wrap in try/catch so FK failures surface
+  // as a structured 500 with the offending ids instead of bubbling the raw
+  // SqliteError up through Next's default error handler.
+  let history: SlicerHistoryRow;
+  try {
+    history = createHistory({
+      modelId,
+      profileId,
+      status: "pending",
+      slicerEngine: engine,
+      technology: profile.technology ?? "fdm",
+    });
+  } catch (insertErr) {
+    const cause = (insertErr as { code?: string; message?: string })?.code ?? "";
+    const message =
+      insertErr instanceof Error ? insertErr.message : String(insertErr);
+    return NextResponse.json(
+      {
+        error: "Failed to create slicer_history row",
+        detail: message,
+        code: cause,
+        modelId,
+        profileId,
+        hint:
+          cause.includes("FOREIGN_KEY") || message.includes("FOREIGN KEY")
+            ? "A FK constraint on slicer_history fired. Check boot log for [openslicer:boot] slicer_history FKs report to see which column(s) still carry a REFERENCES clause."
+            : undefined,
+      },
+      { status: 500 },
+    );
+  }
 
   try {
     // Update status to slicing

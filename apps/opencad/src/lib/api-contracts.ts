@@ -183,7 +183,7 @@ export const SketchSolveResponse = z.object({
 export const FeatureEvaluateBody = z.object({
   projectId: z.string(),
   fromFeatureId: z.string().optional(),                 // partial re-eval from node
-  parameterOverrides: z.record(z.union([z.number(), z.string(), z.boolean()])).optional(),
+  parameterOverrides: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])).optional(),
   dryRun: z.boolean().default(false),
 });
 export const FeatureEvaluateResponse = z.object({

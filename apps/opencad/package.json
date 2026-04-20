@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.1",
     "@opensoftware/config": "workspace:*",
     "@opensoftware/db": "workspace:*",
     "@opensoftware/shared": "workspace:*",
@@ -37,6 +38,7 @@
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.2.1",
     "three": "^0.176.0",
+    "three-bvh-csg": "^0.0.17",
     "typescript": "^5.9.3",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"

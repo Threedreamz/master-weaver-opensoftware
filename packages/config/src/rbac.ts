@@ -207,6 +207,28 @@ export const OPENPIPELINE_PERMISSIONS: Record<Exclude<UserRole, "admin">, string
   guest: [],
 };
 
+export const OPENCAD_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
+  editor: [
+    "cad:projects:read",
+    "cad:projects:write",
+    "cad:parts:read",
+    "cad:parts:write",
+    "cad:assemblies:read",
+    "cad:assemblies:write",
+    "cad:cam:read",
+    "cad:cam:write",
+    "cad:export:read",
+  ],
+  viewer: [
+    "cad:projects:read",
+    "cad:parts:read",
+    "cad:assemblies:read",
+    "cad:cam:read",
+    "cad:export:read",
+  ],
+  guest: [],
+};
+
 export const OPENFARM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
   editor: [
     "farm:printers:read",

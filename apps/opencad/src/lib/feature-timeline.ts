@@ -1,0 +1,345 @@
+/**
+ * opencad — feature timeline (deterministic tree evaluator, M1)
+ *
+ * Loads a project's feature list from SQLite, topologically sorts by parentIds,
+ * and evaluates each node by dispatching to the cad-kernel (boxes, extrudes,
+ * booleans, fillets, chamfers). Every node's output is content-addressed via
+ * sha256(kind + paramsJson + sorted parent hashes + parameterOverrides) and
+ * cached in geometry-cache to make re-evaluation cheap.
+ *
+ * Errors in one branch don't halt the run — downstream nodes whose ancestry
+ * is still clean continue evaluating. Failures are reported per-feature in
+ * the response `errors` array.
+ *
+ * Pure Node runtime. No browser imports. Consumed by /api/feature/evaluate.
+ */
+
+import { performance } from "node:perf_hooks";
+import { eq, asc } from "drizzle-orm";
+
+import { db, schema } from "@/db";
+import type { OpencadFeature } from "@opensoftware/db/opencad";
+import type { z } from "zod";
+import type { FeatureEvaluateResponse as FeatureEvaluateResponseSchema, BBox as BBoxSchema } from "./api-contracts";
+
+import { topoSort, buildDAG, type DAG } from "./feature-dag";
+import { sha256 } from "./hash";
+import { getCachedGeometry, setCachedGeometry } from "./geometry-cache";
+import {
+  createBox,
+  extrudeProfile,
+  booleanOp,
+  fillet,
+  chamfer,
+  tessellate,
+  exportBoundingBox,
+  type KernelHandle,
+} from "./cad-kernel";
+
+type FeatureEvaluateResponse = z.infer<typeof FeatureEvaluateResponseSchema>;
+type BBox = z.infer<typeof BBoxSchema>;
+
+type EvalOpts = {
+  fromFeatureId?: string;
+  parameterOverrides?: Record<string, unknown>;
+  dryRun?: boolean;
+};
+
+type EvalResult = {
+  handle: KernelHandle | null;
+  bbox: BBox | null;
+  triangleCount: number;
+  contentHash: string;
+};
+
+/* -------------------------------------------------------------------- utils */
+
+/** Canonical JSON stringify (sorted keys) — required so hash is deterministic
+ * even when the client writes paramsJson with keys in a different order. */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  return `{${keys
+    .map((k) => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`)
+    .join(",")}}`;
+}
+
+/** Apply parameter overrides by shallow key-matching on paramsJson. Keys not
+ * present in the feature's params are ignored — overrides are broadcast across
+ * the tree and each feature picks up only the names it knows about. */
+function applyOverrides(
+  params: Record<string, unknown>,
+  overrides?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!overrides) return params;
+  const merged: Record<string, unknown> = { ...params };
+  for (const key of Object.keys(overrides)) {
+    if (key in merged) merged[key] = overrides[key];
+  }
+  return merged;
+}
+
+function unionBBox(a: BBox | null, b: BBox | null): BBox | null {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    min: { x: Math.min(a.min.x, b.min.x), y: Math.min(a.min.y, b.min.y), z: Math.min(a.min.z, b.min.z) },
+    max: { x: Math.max(a.max.x, b.max.x), y: Math.max(a.max.y, b.max.y), z: Math.max(a.max.z, b.max.z) },
+  };
+}
+
+/* ---------------------------------------------------------------- kernel op */
+
+/**
+ * Dispatch a single feature to the kernel. Caller is responsible for having
+ * already resolved parent handles (they're passed via `parentHandles`, in the
+ * same order as feature.parentIds).
+ */
+async function evaluateFeature(
+  feature: OpencadFeature,
+  params: Record<string, unknown>,
+  parentHandles: KernelHandle[],
+): Promise<{ handle: KernelHandle; bbox: BBox; triangleCount: number }> {
+  let handle: KernelHandle;
+
+  switch (feature.kind) {
+    case "extrude": {
+      // Box shorthand if params look like a box (width/height/depth); otherwise
+      // treat as a profile extrusion. The kernel decides what a "profile" is.
+      if (typeof params.width === "number" && typeof params.height === "number" && typeof params.depth === "number") {
+        handle = await createBox({
+          width: params.width as number,
+          height: params.height as number,
+          depth: params.depth as number,
+        });
+      } else {
+        handle = await extrudeProfile({
+          profile: params.profile as unknown,
+          distance: (params.distance as number) ?? (params.height as number) ?? 1,
+          direction: params.direction as { x: number; y: number; z: number } | undefined,
+        });
+      }
+      break;
+    }
+    case "revolve": {
+      // Revolve is not in the M1 kernel surface; approximate as an extruded
+      // profile for now. Replace with kernel.revolve() once it lands.
+      handle = await extrudeProfile({
+        profile: params.profile as unknown,
+        distance: (params.height as number) ?? 1,
+      });
+      break;
+    }
+    case "cut":
+    case "boolean": {
+      if (parentHandles.length < 2) {
+        throw new Error(`${feature.kind} requires 2+ parent features, got ${parentHandles.length}`);
+      }
+      const op = feature.kind === "cut"
+        ? "subtract"
+        : ((params.op as "union" | "subtract" | "intersect") ?? "union");
+      handle = await booleanOp({ op, a: parentHandles[0], b: parentHandles[1] });
+      // Fold any further parents into the result (n-ary union/intersect).
+      for (let i = 2; i < parentHandles.length; i++) {
+        handle = await booleanOp({ op, a: handle, b: parentHandles[i] });
+      }
+      break;
+    }
+    case "fillet": {
+      if (parentHandles.length < 1) throw new Error("fillet requires 1 parent feature");
+      handle = await fillet({
+        target: parentHandles[0],
+        radius: (params.radius as number) ?? 1,
+        edges: params.edges as string[] | undefined,
+      });
+      break;
+    }
+    case "chamfer": {
+      if (parentHandles.length < 1) throw new Error("chamfer requires 1 parent feature");
+      handle = await chamfer({
+        target: parentHandles[0],
+        distance: (params.distance as number) ?? 1,
+        edges: params.edges as string[] | undefined,
+      });
+      break;
+    }
+    default:
+      throw new Error(`unknown feature kind: ${(feature as { kind: string }).kind}`);
+  }
+
+  const bbox = await exportBoundingBox(handle);
+  const mesh = await tessellate(handle, { quality: "normal" });
+  const triangleCount = typeof mesh?.triangleCount === "number" ? mesh.triangleCount : 0;
+
+  return { handle, bbox, triangleCount };
+}
+
+/* ----------------------------------------------------------------- top-level */
+
+/**
+ * Evaluate (or re-evaluate) a project's feature tree.
+ *
+ * Flow:
+ *   1. Load features from DB, ordered by `order` ASC.
+ *   2. If `fromFeatureId` given, prune to that node and its descendants.
+ *   3. topoSort — throws on cycle.
+ *   4. For each node: compute content hash, check geometry-cache, evaluate if
+ *      miss (or skip entirely on dryRun), cache on success, record on fail.
+ *   5. Union all leaf bboxes, sum triangle counts, return.
+ */
+export async function evaluateTree(
+  projectId: string,
+  opts: EvalOpts = {},
+): Promise<FeatureEvaluateResponse> {
+  const started = performance.now();
+  const errors: { featureId: string; message: string }[] = [];
+  const evaluatedFeatureIds: string[] = [];
+
+  // 1. Load features in timeline order.
+  const allFeatures = await db
+    .select()
+    .from(schema.opencadFeatures)
+    .where(eq(schema.opencadFeatures.projectId, projectId))
+    .orderBy(asc(schema.opencadFeatures.order));
+
+  if (allFeatures.length === 0) {
+    return {
+      projectId,
+      evaluatedFeatureIds: [],
+      bbox: null,
+      triangleCount: 0,
+      durationMs: performance.now() - started,
+      errors: [],
+    };
+  }
+
+  // 2. Optional partial-tree pruning: keep only `fromFeatureId` and descendants.
+  let features: OpencadFeature[] = allFeatures;
+  if (opts.fromFeatureId) {
+    const fullDag = buildDAG(allFeatures);
+    if (!fullDag.has(opts.fromFeatureId)) {
+      return {
+        projectId,
+        evaluatedFeatureIds: [],
+        bbox: null,
+        triangleCount: 0,
+        durationMs: performance.now() - started,
+        errors: [{ featureId: opts.fromFeatureId, message: "fromFeatureId not found in project" }],
+      };
+    }
+    const keep = new Set<string>();
+    const walk = (id: string) => {
+      if (keep.has(id)) return;
+      keep.add(id);
+      const n = fullDag.get(id);
+      if (!n) return;
+      for (const c of n.children) walk(c);
+    };
+    walk(opts.fromFeatureId);
+    features = allFeatures.filter((f) => keep.has(f.id));
+  }
+
+  // 3. Topological sort — bubbles cycles as a thrown error (caller gets 500).
+  const sorted = topoSort(features);
+  const dag: DAG = buildDAG(sorted);
+
+  // 4. Evaluate. Track per-node result so downstream nodes can pick up handles.
+  const results = new Map<string, EvalResult>();
+  /** Nodes that failed OR have a failed ancestor — skipped without adding new errors. */
+  const poisoned = new Set<string>();
+  const overrideHash = opts.parameterOverrides
+    ? sha256(canonicalJson(opts.parameterOverrides))
+    : "";
+
+  for (const feature of sorted) {
+    // Skip if any ancestor is poisoned (the branch is already broken — don't
+    // double-report and don't waste kernel calls).
+    const parents = dag.get(feature.id)?.parents ?? [];
+    if (parents.some((p) => poisoned.has(p))) {
+      poisoned.add(feature.id);
+      continue;
+    }
+
+    // Content hash: stable across reorderings of paramsJson keys and parentIds.
+    const effectiveParams = applyOverrides(
+      (feature.paramsJson ?? {}) as Record<string, unknown>,
+      opts.parameterOverrides,
+    );
+    const parentHashes = parents
+      .map((pid) => results.get(pid)?.contentHash ?? "")
+      .sort();
+    const contentHash = sha256(
+      [feature.kind, canonicalJson(effectiveParams), parentHashes.join(","), overrideHash].join("|"),
+    );
+
+    // dryRun: validate DAG + hash only. Don't touch the kernel or the cache.
+    if (opts.dryRun) {
+      results.set(feature.id, { handle: null, bbox: null, triangleCount: 0, contentHash });
+      evaluatedFeatureIds.push(feature.id);
+      continue;
+    }
+
+    try {
+      const cached = await getCachedGeometry(contentHash);
+      if (cached) {
+        results.set(feature.id, {
+          handle: cached.handle,
+          bbox: cached.bbox,
+          triangleCount: cached.triangleCount,
+          contentHash,
+        });
+        evaluatedFeatureIds.push(feature.id);
+        continue;
+      }
+
+      const parentHandles: KernelHandle[] = [];
+      for (const pid of parents) {
+        const r = results.get(pid);
+        if (!r || !r.handle) throw new Error(`missing parent geometry for ${pid}`);
+        parentHandles.push(r.handle);
+      }
+
+      const evalOut = await evaluateFeature(feature, effectiveParams, parentHandles);
+      results.set(feature.id, { ...evalOut, contentHash });
+
+      await setCachedGeometry(contentHash, {
+        handle: evalOut.handle,
+        bbox: evalOut.bbox,
+        triangleCount: evalOut.triangleCount,
+      });
+
+      evaluatedFeatureIds.push(feature.id);
+    } catch (err) {
+      errors.push({
+        featureId: feature.id,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      poisoned.add(feature.id);
+      // Keep iterating — independent branches are still eligible.
+    }
+  }
+
+  // 5. Aggregate leaf geometry. A "leaf" is a node with no successful children
+  //    in the evaluated set (its output is observable). In dry-run mode there
+  //    are no bboxes so this collapses to null.
+  let unionedBBox: BBox | null = null;
+  let triangleSum = 0;
+  for (const [id, result] of results) {
+    const hasEvaluatedChild = (dag.get(id)?.children ?? []).some(
+      (c) => results.has(c) && !poisoned.has(c),
+    );
+    if (hasEvaluatedChild) continue;
+    unionedBBox = unionBBox(unionedBBox, result.bbox);
+    triangleSum += result.triangleCount;
+  }
+
+  return {
+    projectId,
+    evaluatedFeatureIds,
+    bbox: unionedBBox,
+    triangleCount: triangleSum,
+    durationMs: performance.now() - started,
+    errors,
+  };
+}

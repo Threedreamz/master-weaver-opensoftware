@@ -1,0 +1,29 @@
+id: 3dreel-staging
+provider: 3dreel.app
+providerName: 3Dreel
+stability: experimental
+stabilityNote: >
+  Placeholder — the real 3dreel.app API shape has not been confirmed with
+  the vendor yet. Field names, auth mode, and billing may all change once
+  we integrate. Treat this file as a schema seed, not a binding contract.
+
+endpoint: https://api.3dreel.app/v1/stage
+authMode: apiKey
+inputs:
+  - model/gltf-binary
+  - model/gltf+json
+outputs:
+  - image/webp
+  - image/jpeg
+billing: perJob
+perJobPriceCents: 50
+timeout: 120000
+
+description: >
+  Drop a 3D model into a styled scene (studio, loft, outdoor) and receive
+  marketing-ready product renders. Useful for merchants whose raw 3D models
+  look utilitarian but need hero-image presentation for their shop.
+
+website: https://3dreel.app
+logo: https://3dreel.app/logo-128.png
+tags: [enhancement, rendering, staging, product-photo]
