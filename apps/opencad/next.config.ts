@@ -1,27 +1,23 @@
 import type { NextConfig } from "next";
-import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
-
-const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: [
-    "@opensoftware/slicer-core",
     "@opensoftware/shared",
     "@opensoftware/config",
     "@opensoftware/db",
     "@opensoftware/ui",
   ],
-  serverExternalPackages: ["better-sqlite3"],
+  // better-sqlite3 is a native module; Replicad's WASM kernel is a large
+  // dynamic import — both must be externalised from the server bundle.
+  serverExternalPackages: ["better-sqlite3", "replicad", "replicad-opencascadejs"],
   typescript: { ignoreBuildErrors: !!process.env.DOCKER_BUILD },
   experimental: {
     optimizePackageImports: ["lucide-react"],
-    // Raise Next 16's default 10MB body cap for /api/models/upload.
-    // STL/3MF models routinely exceed 10MB; 500MB matches the hub proxy
-    // and MAX_UPLOAD_BYTES. Next 16.2 renamed this from
-    // `middlewareClientMaxBodySize` → `proxyClientMaxBodySize`.
+    // Raise Next 16's default 10MB body cap for STEP/STL imports.
+    // 500MB matches the hub proxy and upstream openslicer.
     proxyClientMaxBodySize: "500mb",
     serverActions: {
       bodySizeLimit: "500mb",
@@ -29,4 +25,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default nextConfig;

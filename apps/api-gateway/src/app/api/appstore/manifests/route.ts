@@ -25,7 +25,8 @@ const MANIFEST_SERVICES = [
   { slug: "open3d-api",      port: 4173 },
   { slug: "open3d-studio",   port: 4172 },
   { slug: "open3d-desktop",  port: 4181 },
-  { slug: "open3d-worker",   port: 4182 },  // moved from 4174 (openfarm collision)
+  { slug: "open3d-worker",   port: 4182 },  // moved from 4174 (historic openfarm collision; 4174 now owned by opencad)
+  { slug: "opencad",         port: 4174 },
 ] as const;
 
 const FETCH_TIMEOUT_MS = 3000;
