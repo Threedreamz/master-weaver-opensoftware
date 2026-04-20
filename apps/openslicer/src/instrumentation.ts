@@ -71,6 +71,43 @@ export async function register() {
       }
     }
 
+    // One-shot FK-drop migration for deployed volumes whose slicer_history table
+    // still has `profile_id REFERENCES slicer_profiles(id)` — the FK blocks every
+    // slice whose profile is a process-profile UUID with SQLITE_CONSTRAINT failure.
+    // True no-op on fresh volumes (new CREATE TABLE already lacks the FK) because
+    // the guard inspects sqlite_master.sql for the old REFERENCES clause.
+    try {
+      const Database = (await import("better-sqlite3")).default;
+      const probe = new Database(dbPath);
+      try {
+        const row = probe
+          .prepare(
+            `SELECT sql FROM sqlite_master WHERE type='table' AND name='slicer_history'`,
+          )
+          .get() as { sql?: string } | undefined;
+        const needsDrop =
+          row?.sql && /profile_id[^,]*REFERENCES\s+slicer_profiles/i.test(row.sql);
+        if (needsDrop) {
+          console.log(`[openslicer:boot] applying drop-history-profile-fk migration`);
+          const { readFileSync } = await import("fs");
+          const { join } = await import("path");
+          const sqlPath =
+            process.env.NODE_ENV === "production"
+              ? "/app/apps/openslicer/scripts/migrate-drop-history-profile-fk.sql"
+              : join(process.cwd(), "scripts/migrate-drop-history-profile-fk.sql");
+          const sql = readFileSync(sqlPath, "utf8");
+          probe.exec(sql);
+          console.log(`[openslicer:boot] drop-history-profile-fk migration complete`);
+        } else {
+          console.log(`[openslicer:boot] slicer_history FK already absent, skipping drop migration`);
+        }
+      } finally {
+        probe.close();
+      }
+    } catch (fkErr) {
+      console.error(`[openslicer:boot] drop-history-profile-fk migration FAILED (non-fatal):`, fkErr);
+    }
+
     try {
       const { eq } = await import("drizzle-orm");
       const { slicerModels } = await import("./db/schema");

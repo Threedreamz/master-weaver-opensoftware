@@ -81,6 +81,10 @@ COPY --from=builder /app/apps/openslicer/public ./apps/openslicer/public
 # Copy generated SQL migration files for runtime instrumentation.ts
 COPY --from=builder /app/apps/openslicer/drizzle /app/apps/openslicer/drizzle
 
+# Copy hand-rolled one-shot migration SQL scripts (e.g. drop-history-profile-fk)
+# used by instrumentation.ts outside the drizzle-kit migration pipeline.
+COPY --from=builder /app/apps/openslicer/scripts /app/apps/openslicer/scripts
+
 # Copy better-sqlite3 native module for runtime
 COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/
 

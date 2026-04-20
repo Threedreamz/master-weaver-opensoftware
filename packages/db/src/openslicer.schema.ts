@@ -153,7 +153,13 @@ export const slicerProcessProfiles = sqliteTable("slicer_process_profiles", {
 export const slicerHistory = sqliteTable("slicer_history", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   modelId: text("model_id").references(() => slicerModels.id),
-  profileId: text("profile_id").references(() => slicerProfiles.id),
+  // profile_id is POLYMORPHIC: references either slicer_profiles.id (legacy) OR
+  // slicer_process_profiles.id (current). The slice route (src/app/api/slice/route.ts)
+  // falls through from getProfileById → getProcessProfileById and passes whichever
+  // UUID matched into createHistory. Enforcing an FK to slicer_profiles breaks the
+  // process-profile path with SQLITE_CONSTRAINT: FOREIGN KEY constraint failed.
+  // Keep the column + index for query performance; drop the FK.
+  profileId: text("profile_id"),
   status: text("status", { enum: ["pending", "slicing", "completed", "failed"] }).default("pending").notNull(),
   outputFilePath: text("output_file_path"),
   estimatedTime: integer("estimated_time"),
