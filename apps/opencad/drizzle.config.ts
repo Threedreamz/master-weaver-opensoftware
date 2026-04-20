@@ -1,7 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: "../../packages/db/src/opencad.schema.ts",
+  schema: [
+    "../../packages/db/src/shared.schema.ts",
+    "../../packages/db/src/opencad.schema.ts",
+  ],
   out: "./drizzle/migrations",
   dialect: "sqlite",
   dbCredentials: {

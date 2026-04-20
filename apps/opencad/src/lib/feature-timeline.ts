@@ -4,8 +4,8 @@
  * Loads a project's feature list from SQLite, topologically sorts by parentIds,
  * and evaluates each node by dispatching to the cad-kernel (boxes, extrudes,
  * booleans, fillets, chamfers). Every node's output is content-addressed via
- * sha256(kind + paramsJson + sorted parent hashes + parameterOverrides) and
- * cached in geometry-cache to make re-evaluation cheap.
+ * hashFeature(kind + paramsJson + sorted parent hashes + parameterOverrides)
+ * and cached in geometry-cache to make re-evaluation cheap.
  *
  * Errors in one branch don't halt the run — downstream nodes whose ancestry
  * is still clean continue evaluating. Failures are reported per-feature in
@@ -16,6 +16,7 @@
 
 import { performance } from "node:perf_hooks";
 import { eq, asc } from "drizzle-orm";
+import * as THREE from "three";
 
 import { db, schema } from "@/db";
 import type { OpencadFeature } from "@opensoftware/db/opencad";
@@ -23,8 +24,12 @@ import type { z } from "zod";
 import type { FeatureEvaluateResponse as FeatureEvaluateResponseSchema, BBox as BBoxSchema } from "./api-contracts";
 
 import { topoSort, buildDAG, type DAG } from "./feature-dag";
-import { sha256 } from "./hash";
-import { getCachedGeometry, setCachedGeometry } from "./geometry-cache";
+import { hashFeature, hashContent } from "./hash";
+import {
+  getCachedGeometry,
+  setCachedGeometry,
+  type SerializedGeometry,
+} from "./geometry-cache";
 import {
   createBox,
   extrudeProfile,
@@ -33,7 +38,13 @@ import {
   chamfer,
   tessellate,
   exportBoundingBox,
-  type KernelHandle,
+  serializeGeometry,
+  deserializeGeometry,
+  computeVolumeMm3,
+  type SolidResult,
+  type Point2,
+  type TessellationQuality,
+  type BooleanOpKind,
 } from "./cad-kernel";
 
 type FeatureEvaluateResponse = z.infer<typeof FeatureEvaluateResponseSchema>;
@@ -46,7 +57,7 @@ type EvalOpts = {
 };
 
 type EvalResult = {
-  handle: KernelHandle | null;
+  solid: SolidResult | null;
   bbox: BBox | null;
   triangleCount: number;
   contentHash: string;
@@ -89,90 +100,111 @@ function unionBBox(a: BBox | null, b: BBox | null): BBox | null {
   };
 }
 
+/** Count triangles in a BufferGeometry (index-count/3 or position-count/3). */
+function triangleCountOf(geom: THREE.BufferGeometry): number {
+  const idx = geom.getIndex();
+  if (idx) return Math.floor(idx.count / 3);
+  const pos = geom.getAttribute("position");
+  return pos ? Math.floor(pos.count / 3) : 0;
+}
+
+/** Coerce an unknown params.profile into a Point2[] (tolerant of missing data). */
+function coerceProfile(raw: unknown): Point2[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Point2[] = [];
+  for (const p of raw) {
+    if (p && typeof p === "object") {
+      const x = (p as { x?: unknown }).x;
+      const y = (p as { y?: unknown }).y;
+      if (typeof x === "number" && typeof y === "number") out.push({ x, y });
+    }
+  }
+  return out;
+}
+
 /* ---------------------------------------------------------------- kernel op */
 
 /**
  * Dispatch a single feature to the kernel. Caller is responsible for having
- * already resolved parent handles (they're passed via `parentHandles`, in the
+ * already resolved parent solids (they're passed via `parentSolids`, in the
  * same order as feature.parentIds).
  */
-async function evaluateFeature(
+function evaluateFeature(
   feature: OpencadFeature,
   params: Record<string, unknown>,
-  parentHandles: KernelHandle[],
-): Promise<{ handle: KernelHandle; bbox: BBox; triangleCount: number }> {
-  let handle: KernelHandle;
+  parentSolids: SolidResult[],
+): { solid: SolidResult; bbox: BBox; triangleCount: number } {
+  let solid: SolidResult;
 
   switch (feature.kind) {
     case "extrude": {
       // Box shorthand if params look like a box (width/height/depth); otherwise
-      // treat as a profile extrusion. The kernel decides what a "profile" is.
-      if (typeof params.width === "number" && typeof params.height === "number" && typeof params.depth === "number") {
-        handle = await createBox({
-          width: params.width as number,
-          height: params.height as number,
-          depth: params.depth as number,
-        });
+      // treat as a profile extrusion.
+      if (
+        typeof params.width === "number" &&
+        typeof params.height === "number" &&
+        typeof params.depth === "number"
+      ) {
+        solid = createBox(
+          params.width as number,
+          params.height as number,
+          params.depth as number,
+        );
       } else {
-        handle = await extrudeProfile({
-          profile: params.profile as unknown,
-          distance: (params.distance as number) ?? (params.height as number) ?? 1,
-          direction: params.direction as { x: number; y: number; z: number } | undefined,
-        });
+        const profile = coerceProfile(params.profile);
+        const height =
+          (typeof params.distance === "number" ? (params.distance as number) : undefined) ??
+          (typeof params.height === "number" ? (params.height as number) : 1);
+        solid = extrudeProfile(profile, height);
       }
       break;
     }
     case "revolve": {
-      // Revolve is not in the M1 kernel surface; approximate as an extruded
-      // profile for now. Replace with kernel.revolve() once it lands.
-      handle = await extrudeProfile({
-        profile: params.profile as unknown,
-        distance: (params.height as number) ?? 1,
-      });
+      // Revolve is not fully wired to revolveProfile here (profile must be 2D);
+      // approximate with extrudeProfile as a safe fallback.
+      const profile = coerceProfile(params.profile);
+      const height = typeof params.height === "number" ? (params.height as number) : 1;
+      solid = extrudeProfile(profile, height);
       break;
     }
     case "cut":
     case "boolean": {
-      if (parentHandles.length < 2) {
-        throw new Error(`${feature.kind} requires 2+ parent features, got ${parentHandles.length}`);
+      if (parentSolids.length < 2) {
+        throw new Error(`${feature.kind} requires 2+ parent features, got ${parentSolids.length}`);
       }
-      const op = feature.kind === "cut"
-        ? "subtract"
-        : ((params.op as "union" | "subtract" | "intersect") ?? "union");
-      handle = await booleanOp({ op, a: parentHandles[0], b: parentHandles[1] });
+      const op: BooleanOpKind =
+        feature.kind === "cut"
+          ? "subtract"
+          : ((params.op as BooleanOpKind | undefined) ?? "union");
+      solid = booleanOp(parentSolids[0].mesh, parentSolids[1].mesh, op);
       // Fold any further parents into the result (n-ary union/intersect).
-      for (let i = 2; i < parentHandles.length; i++) {
-        handle = await booleanOp({ op, a: handle, b: parentHandles[i] });
+      for (let i = 2; i < parentSolids.length; i++) {
+        solid = booleanOp(solid.mesh, parentSolids[i].mesh, op);
       }
       break;
     }
     case "fillet": {
-      if (parentHandles.length < 1) throw new Error("fillet requires 1 parent feature");
-      handle = await fillet({
-        target: parentHandles[0],
-        radius: (params.radius as number) ?? 1,
-        edges: params.edges as string[] | undefined,
-      });
+      if (parentSolids.length < 1) throw new Error("fillet requires 1 parent feature");
+      const radius = typeof params.radius === "number" ? (params.radius as number) : 1;
+      solid = fillet(parentSolids[0].mesh, radius);
       break;
     }
     case "chamfer": {
-      if (parentHandles.length < 1) throw new Error("chamfer requires 1 parent feature");
-      handle = await chamfer({
-        target: parentHandles[0],
-        distance: (params.distance as number) ?? 1,
-        edges: params.edges as string[] | undefined,
-      });
+      if (parentSolids.length < 1) throw new Error("chamfer requires 1 parent feature");
+      const distance = typeof params.distance === "number" ? (params.distance as number) : 1;
+      solid = chamfer(parentSolids[0].mesh, distance);
       break;
     }
     default:
       throw new Error(`unknown feature kind: ${(feature as { kind: string }).kind}`);
   }
 
-  const bbox = await exportBoundingBox(handle);
-  const mesh = await tessellate(handle, { quality: "normal" });
-  const triangleCount = typeof mesh?.triangleCount === "number" ? mesh.triangleCount : 0;
+  const bbox: BBox = exportBoundingBox(solid.mesh);
+  const quality: TessellationQuality = "normal";
+  const mesh = tessellate(solid.mesh, quality);
+  const triangleCount = triangleCountOf(mesh);
 
-  return { handle, bbox, triangleCount };
+  return { solid, bbox, triangleCount };
 }
 
 /* ----------------------------------------------------------------- top-level */
@@ -249,7 +281,7 @@ export async function evaluateTree(
   /** Nodes that failed OR have a failed ancestor — skipped without adding new errors. */
   const poisoned = new Set<string>();
   const overrideHash = opts.parameterOverrides
-    ? sha256(canonicalJson(opts.parameterOverrides))
+    ? hashContent(opts.parameterOverrides)
     : "";
 
   for (const feature of sorted) {
@@ -269,45 +301,56 @@ export async function evaluateTree(
     const parentHashes = parents
       .map((pid) => results.get(pid)?.contentHash ?? "")
       .sort();
-    const contentHash = sha256(
-      [feature.kind, canonicalJson(effectiveParams), parentHashes.join(","), overrideHash].join("|"),
+    const contentHash = hashFeature(
+      feature.kind,
+      { params: effectiveParams, overrideHash },
+      parentHashes,
     );
 
     // dryRun: validate DAG + hash only. Don't touch the kernel or the cache.
     if (opts.dryRun) {
-      results.set(feature.id, { handle: null, bbox: null, triangleCount: 0, contentHash });
+      results.set(feature.id, { solid: null, bbox: null, triangleCount: 0, contentHash });
       evaluatedFeatureIds.push(feature.id);
       continue;
     }
 
     try {
-      const cached = await getCachedGeometry(contentHash);
+      const cached = getCachedGeometry(contentHash);
       if (cached) {
+        const geom = deserializeGeometry(cached);
+        const solid: SolidResult = {
+          mesh: geom,
+          bbox: {
+            min: { x: cached.bbox.min[0], y: cached.bbox.min[1], z: cached.bbox.min[2] },
+            max: { x: cached.bbox.max[0], y: cached.bbox.max[1], z: cached.bbox.max[2] },
+          },
+          volumeMm3: cached.volumeMm3,
+        };
         results.set(feature.id, {
-          handle: cached.handle,
-          bbox: cached.bbox,
-          triangleCount: cached.triangleCount,
+          solid,
+          bbox: solid.bbox,
+          triangleCount: triangleCountOf(geom),
           contentHash,
         });
         evaluatedFeatureIds.push(feature.id);
         continue;
       }
 
-      const parentHandles: KernelHandle[] = [];
+      const parentSolids: SolidResult[] = [];
       for (const pid of parents) {
         const r = results.get(pid);
-        if (!r || !r.handle) throw new Error(`missing parent geometry for ${pid}`);
-        parentHandles.push(r.handle);
+        if (!r || !r.solid) throw new Error(`missing parent geometry for ${pid}`);
+        parentSolids.push(r.solid);
       }
 
-      const evalOut = await evaluateFeature(feature, effectiveParams, parentHandles);
+      const evalOut = evaluateFeature(feature, effectiveParams, parentSolids);
       results.set(feature.id, { ...evalOut, contentHash });
 
-      await setCachedGeometry(contentHash, {
-        handle: evalOut.handle,
-        bbox: evalOut.bbox,
-        triangleCount: evalOut.triangleCount,
-      });
+      // Cache the serialized form of the mesh for future hits.
+      const serialized: SerializedGeometry = serializeGeometry(evalOut.solid.mesh);
+      // Ensure volume is populated even when kernel didn't compute it.
+      if (!serialized.volumeMm3) serialized.volumeMm3 = computeVolumeMm3(evalOut.solid.mesh);
+      setCachedGeometry(contentHash, serialized);
 
       evaluatedFeatureIds.push(feature.id);
     } catch (err) {

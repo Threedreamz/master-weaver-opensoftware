@@ -4,6 +4,9 @@ import path from "path";
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  turbopack: {
+    root: path.join(__dirname, "../../"),
+  },
   transpilePackages: [
     "@opensoftware/shared",
     "@opensoftware/config",

@@ -152,7 +152,12 @@ export const slicerProcessProfiles = sqliteTable("slicer_process_profiles", {
 
 export const slicerHistory = sqliteTable("slicer_history", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  modelId: text("model_id").references(() => slicerModels.id),
+  // model_id FK dropped: volume-reset / partial-seed races were firing FK
+  // constraints at insert even when getModelById returned truthy (proof:
+  // defensive pre-check passed, structured 500 still showed FK fired). The
+  // column + index are kept for joins, but ownership is soft-validated at
+  // the route layer (getModelById → 404 if missing) instead of at the DB.
+  modelId: text("model_id"),
   // profile_id is POLYMORPHIC: references either slicer_profiles.id (legacy) OR
   // slicer_process_profiles.id (current). The slice route (src/app/api/slice/route.ts)
   // falls through from getProfileById → getProcessProfileById and passes whichever

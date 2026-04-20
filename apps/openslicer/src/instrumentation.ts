@@ -96,8 +96,17 @@ export async function register() {
         // `model_id text REFERENCES slicer_models(id)`. Case-insensitive,
         // multi-line; captures the column word preceding REFERENCES and the
         // referenced table so the log entry is self-describing.
+        // Always dump the raw CREATE TABLE SQL so diagnostics don't depend
+        // on regex correctness. Truncate to a sane length for log volume.
         if (row?.sql) {
-          const fkRegex = /(\w+)\s+[^,()]*REFERENCES\s+(\w+)\s*\(\s*(\w+)\s*\)/gi;
+          const snippet = row.sql.replace(/\s+/g, " ").slice(0, 400);
+          console.log(`[openslicer:boot] slicer_history DDL: ${snippet}`);
+        }
+
+        if (row?.sql) {
+          // Regex tolerant of sqlite identifier quoting: `col`, "col", or col.
+          const fkRegex =
+            /[`"]?(\w+)[`"]?\s+[^,()]*\bREFERENCES\s+[`"]?(\w+)[`"]?\s*\(\s*[`"]?(\w+)[`"]?\s*\)/gi;
           const fks: Array<{ column: string; refTable: string; refColumn: string }> = [];
           let match: RegExpExecArray | null;
           while ((match = fkRegex.exec(row.sql)) !== null) {
@@ -115,21 +124,26 @@ export async function register() {
           }
         }
 
-        const needsDrop =
-          row?.sql && /profile_id[^,]*REFERENCES\s+slicer_profiles/i.test(row.sql);
-        if (needsDrop) {
-          console.log(`[openslicer:boot] applying drop-history-profile-fk migration`);
+        // If ANY REFERENCES clause remains on slicer_history, rebuild it
+        // with zero FKs. Covers the legacy profile_id → slicer_profiles FK
+        // AND the previous model_id → slicer_models FK. Both are now
+        // soft-validated at the route layer (getModelById + profile
+        // fall-through) instead of at the DB.
+        const hasAnyFk =
+          !!row?.sql && /\bREFERENCES\s+\w|\bREFERENCES\s+[`"]/i.test(row.sql);
+        if (hasAnyFk) {
+          console.log(`[openslicer:boot] applying drop-history-all-fks migration`);
           const { readFileSync } = await import("fs");
           const { join } = await import("path");
           const sqlPath =
             process.env.NODE_ENV === "production"
-              ? "/app/apps/openslicer/scripts/migrate-drop-history-profile-fk.sql"
-              : join(process.cwd(), "scripts/migrate-drop-history-profile-fk.sql");
+              ? "/app/apps/openslicer/scripts/migrate-drop-history-all-fks.sql"
+              : join(process.cwd(), "scripts/migrate-drop-history-all-fks.sql");
           const sql = readFileSync(sqlPath, "utf8");
           probe.exec(sql);
-          console.log(`[openslicer:boot] drop-history-profile-fk migration complete`);
+          console.log(`[openslicer:boot] drop-history-all-fks migration complete`);
         } else {
-          console.log(`[openslicer:boot] slicer_history profile_id FK already absent, skipping drop migration`);
+          console.log(`[openslicer:boot] slicer_history has no FKs, skipping rebuild`);
         }
 
         // Sanity: count orphan slicer_history rows whose model_id points
