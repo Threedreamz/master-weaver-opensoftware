@@ -15,15 +15,13 @@ export const dynamic = "force-dynamic";
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import { SketchSolveBody } from "@/lib/api-contracts";
 import { solveSketch } from "@/lib/sketch-solver";
+import { resolveUser } from "@/lib/internal-user";
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
 
   const json = await req.json().catch(() => null);
   const parsed = SketchSolveBody.safeParse(json);

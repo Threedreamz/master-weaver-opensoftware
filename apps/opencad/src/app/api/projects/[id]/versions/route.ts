@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
-import { auth } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { CreateVersionBody } from "@/lib/api-contracts";
+import { resolveUser } from "@/lib/internal-user";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
@@ -41,10 +41,10 @@ function toSummary(v: typeof schema.opencadProjectVersions.$inferSelect, userId:
 }
 
 /* GET /api/projects/[id]/versions — list all versions ordered ASC */
-export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   if (!(await assertProjectOwned(id, userId))) {
@@ -67,9 +67,9 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 
 /* POST /api/projects/[id]/versions — snapshot current feature tree as new version */
 export async function POST(req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   if (!(await assertProjectOwned(id, userId))) {

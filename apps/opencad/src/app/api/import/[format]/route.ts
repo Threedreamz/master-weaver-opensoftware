@@ -27,12 +27,12 @@ export const maxDuration = 300;
 
 import { NextResponse, type NextRequest } from "next/server";
 import { and, eq, isNull, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { ImportFormat } from "@/lib/api-contracts";
 import { importSTL } from "@/lib/importers/stl";
 import { import3MF } from "@/lib/importers/threemf";
 import { importSTEP } from "@/lib/importers/step";
+import { resolveUser } from "@/lib/internal-user";
 
 type RouteCtx = { params: Promise<{ format: string }> };
 
@@ -74,11 +74,9 @@ async function runImporter(
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const { format: rawFormat } = await ctx.params;
   const formatParsed = ImportFormat.safeParse(rawFormat);

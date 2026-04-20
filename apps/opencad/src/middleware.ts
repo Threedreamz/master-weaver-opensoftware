@@ -33,8 +33,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Other API routes: check authentication via JWT (edge-compatible)
+  // Other API routes: check authentication via JWT OR shared-secret.
+  // Hub-to-opencad internal calls pass X-API-Key matching OPENSOFTWARE_API_KEY
+  // + X-Hub-User-Id for scoping — per-route handlers resolve the acting user
+  // via `resolveUser()` (see lib/internal-user.ts). Standalone browser sessions
+  // fall through to JWT.
   if (pathname.startsWith("/api")) {
+    const apiKey = request.headers.get("x-api-key");
+    const expectedKey = process.env.OPENSOFTWARE_API_KEY;
+    if (expectedKey && apiKey && apiKey === expectedKey) {
+      return NextResponse.next();
+    }
     const token = await getToken({ req: request, secret });
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

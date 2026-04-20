@@ -16,13 +16,13 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { ExportFormat, ExportQuery } from "@/lib/api-contracts";
 import { exportProjectSTL } from "@/lib/exporters/stl";
 import { exportProject3MF } from "@/lib/exporters/threemf";
 import { exportProjectGLTF } from "@/lib/exporters/gltf";
 import { exportProjectSTEP } from "@/lib/exporters/step";
+import { resolveUser } from "@/lib/internal-user";
 
 type RouteCtx = { params: Promise<{ id: string; format: string }> };
 
@@ -42,11 +42,9 @@ function contentTypeFor(format: string): string {
 }
 
 export async function GET(req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const { id: rawId, format: rawFormat } = await ctx.params;
 
