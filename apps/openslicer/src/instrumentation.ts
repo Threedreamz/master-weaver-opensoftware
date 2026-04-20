@@ -63,8 +63,17 @@ export async function register() {
 
       if (!sentinel) {
         console.log(`[openslicer:boot] sentinel missing, running demo seed`);
-        await import("../scripts/seed-demo");
-        console.log(`[openslicer:boot] demo seed complete`);
+        // Import under src/ so Next.js traces + bundles the module into the
+        // standalone output. A previous import from "../scripts/seed-demo"
+        // was outside the traced tree and failed ERR_MODULE_NOT_FOUND.
+        const { seedDemo } = await import("./lib/seed/seed-demo");
+        const result = await seedDemo();
+        console.log(
+          `[openslicer:boot] demo seed complete — model=${result.modelId} ` +
+            `printers=${result.printerProfileIds.length} ` +
+            `filaments=${result.filamentProfileIds.length} ` +
+            `processes=${result.processProfileIds.length}`,
+        );
       } else {
         console.log(`[openslicer:boot] sentinel found, skipping seed`);
       }

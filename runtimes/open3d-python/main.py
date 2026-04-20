@@ -7,6 +7,10 @@ Handles heavy 3D processing via JSON-RPC 2.0 over stdio:
 - pythonOCC for STEP/IGES/BREP
 - trimesh for mesh analysis
 - Pillow + numpy for 2D-to-3D heightmaps
+
+Sibling runtime: runtimes/open3d-rust — currently a SKELETON placeholder.
+See runtimes/open3d-rust/README.md for the gate criterion that triggers a
+Rust port of individual handlers.
 """
 
 import sys

@@ -1,0 +1,14 @@
+{
+  "extends": "@opensoftware/tsconfig/base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["__tests__/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -54,7 +54,7 @@ def test_rule_based_clamps_out_of_range():
 def test_v2_initial_call_records_method():
     path = _synth_image()
     r = drawing_to_3d.handle({"drawingPath": path, "iterationId": "iter-1"})
-    assert r["method"] == "drawing-to-3d-v2-initial"
+    assert r["method"] == "drawing-to-3d-v3-initial"
     assert r["polygonCount"] >= 2
 
 
@@ -70,7 +70,7 @@ def test_v2_iteration_picks_up_history_and_applies_feedback():
         "userFeedback": "make it twice as thick",
         "aiBackend": "rule_based",
     })
-    assert r2["method"] == "drawing-to-3d-v2"
+    assert r2["method"] == "drawing-to-3d-v3"
     # AI delta should bump extrude to 10
     assert r2["aiDelta"].get("extrudeMm") == 10.0
     assert abs(r2["extrudeMm"] - 10.0) < 0.01

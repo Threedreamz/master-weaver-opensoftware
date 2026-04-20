@@ -54,7 +54,7 @@ jobs:
         working-directory: runtimes/open3d-python
         run: |
           python -m pip install --upgrade pip
-          pip install pytest zstandard trimesh numpy opencv-python-headless shapely Pillow mapbox-earcut
+          pip install pytest zstandard trimesh numpy opencv-python-headless shapely Pillow mapbox-earcut rtree
 
       - name: Run pytest
         working-directory: runtimes/open3d-python
