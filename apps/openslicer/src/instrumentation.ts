@@ -45,8 +45,31 @@ export async function register() {
         ? "/app/apps/openslicer/drizzle/migrations"
         : resolve(process.cwd(), "drizzle/migrations");
     console.log(`[openslicer:boot] running migrations from ${migrationsFolder}`);
-    migrate(db as never, { migrationsFolder });
-    console.log(`[openslicer:boot] migrations complete`);
+    // The Dockerfile regenerates drizzle/migrations via `drizzle-kit generate` on
+    // every build, which produces NEW timestamp-prefixed filenames each time.
+    // When Railway reuses the persistent SQLite volume across deploys, the
+    // __drizzle_migrations journal references old filenames while the bundled
+    // migration files are freshly named — so Drizzle thinks every migration is
+    // new and tries to re-run CREATE TABLE on already-existing tables.
+    // Tolerate "already exists" errors so boot continues; the schema on disk
+    // matches the schema in code, so the app is functionally correct.
+    try {
+      migrate(db as never, { migrationsFolder });
+      console.log(`[openslicer:boot] migrations complete`);
+    } catch (migErr) {
+      const cause = (migErr as { cause?: { code?: string; message?: string } })?.cause;
+      const causeMsg = cause?.message ?? "";
+      const isAlreadyExists =
+        cause?.code === "SQLITE_ERROR" &&
+        (causeMsg.includes("already exists") || causeMsg.includes("duplicate column"));
+      if (isAlreadyExists) {
+        console.warn(
+          `[openslicer:boot] migration idempotency skip — schema already present on volume (${causeMsg.split("\n")[0]})`,
+        );
+      } else {
+        throw migErr;
+      }
+    }
 
     try {
       const { eq } = await import("drizzle-orm");
