@@ -34,7 +34,7 @@ export function toCanonicalCustomer(contact: Contact): CanonicalCustomer {
     phone: null,
     kind: "person",
     status: contact.status === "unsubscribed" || contact.status === "bounced" ? "suspended"
-          : contact.status === "complained" ? "archived"
+          : contact.status === "inactive" ? "archived"
           : "active",
     company: null,
     vatId: null,
@@ -78,7 +78,7 @@ export function fromCanonicalCustomer(canonical: CanonicalCustomer): Contact {
     customFields: (canonical.attributes.customFields as Record<string, unknown>) ?? {},
     score: typeof canonical.attributes.score === "number" ? canonical.attributes.score : 0,
     status: canonical.status === "suspended" ? "unsubscribed"
-          : canonical.status === "archived" ? "complained"
+          : canonical.status === "archived" ? "inactive"
           : "active",
     emailConsent: canonical.attributes.emailConsent === false ? false : true,
     trackingConsent: canonical.attributes.trackingConsent === true,
