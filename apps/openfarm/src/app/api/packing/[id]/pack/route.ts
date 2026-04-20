@@ -34,6 +34,11 @@ export async function POST(
     const estimatedTime = estimateSLSPrintTime(maxZ);
     const estimatedCost = estimateMaterialCost(result.totalPackedVolume);
 
+    const densityWarning =
+      result.utilizationPercent < 30
+        ? `Packdichte ${result.utilizationPercent.toFixed(1)}% liegt unter dem Minimum von 30%. Mehr Teile hinzufügen oder Bauraum verkleinern.`
+        : undefined;
+
     const updated = await updatePackingJobResult(id, {
       status: "packed",
       utilizationPercent: result.utilizationPercent,
@@ -59,6 +64,7 @@ export async function POST(
         estimatedTime,
         estimatedCost,
       },
+      ...(densityWarning ? { warning: densityWarning } : {}),
     });
   } catch (error) {
     console.error("Packing failed:", error);

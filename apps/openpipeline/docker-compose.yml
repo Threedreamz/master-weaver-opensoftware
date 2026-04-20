@@ -1,0 +1,18 @@
+services:
+  openpipeline:
+    image: openpipeline:latest
+    container_name: openpipeline
+    restart: unless-stopped
+    ports:
+      - "4177:4177"
+    environment:
+      - NODE_ENV=production
+      - PORT=4177
+      - DB_PATH=/app/data/openpipeline.db
+      - AUTH_SECRET=${AUTH_SECRET:-changeme-generate-a-real-secret}
+      - FINDERAUTH_ISSUER=${FINDERAUTH_ISSUER:-}
+      - FINDERAUTH_CLIENT_ID=${FINDERAUTH_CLIENT_ID:-}
+      - FINDERAUTH_CLIENT_SECRET=${FINDERAUTH_CLIENT_SECRET:-}
+      - UPLOAD_DIR=/app/data/uploads
+    volumes:
+      - ./data:/app/data

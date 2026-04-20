@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.3dreamz.open3d",
   "build": {
-    "devUrl": "http://localhost:4178",
+    "devUrl": "http://localhost:4181",
     "frontendDist": "../.next"
   },
   "app": {

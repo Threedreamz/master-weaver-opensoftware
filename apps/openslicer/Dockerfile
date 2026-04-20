@@ -63,6 +63,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4175
 ENV HOSTNAME=0.0.0.0
+# SQLite file on Railway volume mount — volume is mounted at /app/data.
+# Railway sets DATABASE_URL separately if configured; this is the default.
+ENV DATABASE_URL=/app/data/openslicer.db
+# Runtime migration folder (src/instrumentation.ts reads this).
+ENV OPENSLICER_MIGRATIONS_DIR=/app/apps/openslicer/drizzle/migrations
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \

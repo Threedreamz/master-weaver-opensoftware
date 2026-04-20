@@ -57,6 +57,12 @@ import {
   ShieldCheck,
   Sparkles,
   Box,
+  GripVertical,
+  Trash2,
+  BadgeEuro,
+  ClipboardList,
+  Building2,
+  Flag,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -68,19 +74,25 @@ import WebhooksPanel from "../WebhooksPanel";
 import NotificationsPanel from "../NotificationsPanel";
 import CodePanel from "../CodePanel";
 import RulesPanel from "../RulesPanel";
+import DisplayRulesPanel from "../DisplayRulesPanel";
+import { PricingPanel } from "../PricingPanel";
 import QAPanel from "../QAPanel";
 import AIAssistant from "../AIAssistant";
+import AIChatPanel from "../AIChatPanel";
+import PlanEditDialog from "../PlanEditDialog";
+import type { FlowOperation } from "@/types/ai-edit";
 import { COMPONENT_DEFINITIONS } from "@opensoftware/openflow-core";
 import type {
   FlowDefinition,
   FlowEdge,
   FlowStep,
   FlowTheme,
+  FlowSettings,
   StepComponent,
 } from "@opensoftware/openflow-core";
 
 const STLViewerComponent = lazy(() => import("@opensoftware/openflow-renderer/stl-viewer"));
-import { FlowRenderer } from "@opensoftware/openflow-renderer";
+import { FlowRenderer, useRendererStore, calculatePrice, formatPrice, formatPriceRange } from "@opensoftware/openflow-renderer";
 
 // ─── Inline SVG renderer (decodes data-URLs to allow color override) ─────────
 
@@ -131,7 +143,7 @@ function isSvgDataUrl(url: string): boolean {
 
 // ─── Sidebar Tab Types ────────────────────────────────────────────────────────
 
-type SidebarTab = "editor" | "regeln" | "design" | "code" | "integrationen";
+type SidebarTab = "editor" | "regeln" | "design" | "code" | "integrationen" | "preise";
 
 // ─── Default Theme ────────────────────────────────────────────────────────────
 
@@ -207,6 +219,7 @@ const COMPONENT_LABEL_MAP: Record<string, string> = {
   "payment-field": "Zahlung",
   "submit-button": "Absenden-Button",
   "button": "Button",
+  "contact-form": "Form",
 };
 
 const COMPONENT_COLOR_MAP: Record<string, string> = {
@@ -235,6 +248,7 @@ const COMPONENT_COLOR_MAP: Record<string, string> = {
   "payment-field": "#10b981",
   "submit-button": "#16a34a",
   "button": "#6366f1",
+  "contact-form": "#6366f1",
 };
 
 // ─── Component Palette Categories (Heyflow-style) ────────────────────────────
@@ -262,7 +276,7 @@ const PALETTE_CATEGORIES = [
       { type: "rating", label: "Icon-Bewertung", icon: Star },
       { type: "slider", label: "Schieberegler", icon: SlidersHorizontal },
       { type: "file-upload", label: "Hochladen", icon: Upload },
-      { type: "card-selector", label: "Form", icon: LayoutGrid },
+      { type: "contact-form", label: "Form", icon: ClipboardList },
       { type: "location-picker", label: "Adresse & Karte", icon: MapPin },
     ],
   },
@@ -306,6 +320,7 @@ function BlockPreview({
   onDelete,
   theme,
   previewMode = false,
+  pricingConfig,
 }: {
   comp: StepComponent;
   isSelected: boolean;
@@ -317,6 +332,7 @@ function BlockPreview({
   onDelete: () => void;
   theme: FlowTheme;
   previewMode?: boolean;
+  pricingConfig?: FlowSettings["pricingConfig"];
 }) {
   const blockLabel =
     COMPONENT_LABEL_MAP[comp.componentType] ?? comp.componentType;
@@ -367,21 +383,26 @@ function BlockPreview({
     switch (comp.componentType) {
       case "heading": {
         const hLevel = Number(config.level) || 2;
-        const hAlign = (config.alignment as string) || (styleOverrides.textAlign as string) || "left";
         const defaultFontSizes: Record<number, string> = { 1: "2.25rem", 2: "1.5rem", 3: "1.25rem", 4: "1.0625rem" };
-        return (
-          <h2 className="text-xl font-bold">
-            {(config.text as string) || comp.label || "Überschrift"}
-          </h2>
-        );
+        const headingStyle: React.CSSProperties = {
+          ...overrideStyle,
+          fontWeight: (overrideStyle.fontWeight as string | number) ?? 700,
+          ...(overrideStyle.fontSize ? {} : { fontSize: defaultFontSizes[hLevel] }),
+        };
+        const headingText = (config.text as string) || comp.label || "Überschrift";
+        if (hLevel === 1) return <h1 style={headingStyle}>{headingText}</h1>;
+        if (hLevel === 3) return <h3 style={headingStyle}>{headingText}</h3>;
+        if (hLevel === 4) return <h4 style={headingStyle}>{headingText}</h4>;
+        return <h2 style={headingStyle}>{headingText}</h2>;
       }
       case "paragraph": {
-        const pAlign = (config.alignment as string) || (styleOverrides.textAlign as string) || "left";
+        const paraStyle: React.CSSProperties = {
+          ...overrideStyle,
+          lineHeight: overrideStyle.lineHeight ?? "1.625",
+        };
         return (
-          <p className="text-sm leading-relaxed">
-            {(config.text as string) ||
-              comp.label ||
-              "Absatztext hier eingeben..."}
+          <p style={paraStyle}>
+            {(config.text as string) || comp.label || "Absatztext hier eingeben..."}
           </p>
         );
       }
@@ -486,6 +507,9 @@ function BlockPreview({
         const cardStyle = (config.style as string) || "bordered";
         const iconSize = styleOverrides.iconSize || "1.75rem";
         const iconColor = styleOverrides.iconColor || theme.primaryColor;
+        const cardAlign = (styleOverrides.iconAlignment as string) ?? "center";
+        const cardAlignClass = cardAlign === "right" ? "text-right" : cardAlign === "left" ? "text-left" : "text-center";
+        const imgMargin = cardAlign === "right" ? "0 0 0.5rem auto" : cardAlign === "left" ? "0 auto 0.5rem 0" : "0 auto 0.5rem";
         const gridCols = cardCols > 0 ? cardCols : (cards.length <= 2 ? 2 : cards.length <= 3 ? 3 : 2);
         return (
           <div>
@@ -498,7 +522,7 @@ function BlockPreview({
               {cards.map((card) => (
                 <div
                   key={card.key}
-                  className={`rounded-lg p-3 text-center transition-colors ${
+                  className={`rounded-lg p-3 transition-colors ${cardAlignClass} ${
                     cardStyle === "minimal" ? "hover:bg-gray-50" :
                     cardStyle === "filled" ? "bg-gray-50 hover:bg-gray-100" :
                     "border border-gray-200 bg-white hover:border-gray-400"
@@ -507,12 +531,12 @@ function BlockPreview({
                 >
                   {card.imageUrl ? (
                     isSvgDataUrl(card.imageUrl) ? (
-                      <div className="mx-auto mb-2"><ColoredSvg src={card.imageUrl} color={iconColor} size={iconSize} /></div>
+                      <div className="mb-2" style={{ display: "flex", justifyContent: cardAlign === "right" ? "flex-end" : cardAlign === "left" ? "flex-start" : "center" }}><ColoredSvg src={card.imageUrl} color={iconColor} size={iconSize} /></div>
                     ) : (
-                      <img src={card.imageUrl} alt="" style={{ width: iconSize, height: iconSize, objectFit: "contain", margin: "0 auto 0.5rem" }} />
+                      <img src={card.imageUrl} alt="" style={{ width: iconSize, height: iconSize, objectFit: "contain", margin: imgMargin }} />
                     )
                   ) : (
-                    <div className="rounded-full mx-auto mb-2" style={{ width: iconSize, height: iconSize, backgroundColor: `${iconColor}20` }} />
+                    <div className="rounded-full mb-2" style={{ width: iconSize, height: iconSize, backgroundColor: `${iconColor}20`, marginLeft: cardAlign === "center" ? "auto" : cardAlign === "right" ? "auto" : "0", marginRight: cardAlign === "center" ? "auto" : cardAlign === "left" ? "auto" : "0" }} />
                   )}
                   <p className="text-xs font-medium text-gray-700">
                     {card.title}
@@ -950,6 +974,94 @@ function BlockPreview({
           </div>
         );
       }
+      case "price-display": {
+        const priceLabel = (config.label as string) || "Geschätzter Preis";
+        const pc = pricingConfig;
+        const hasRangeRules = (pc?.basePriceRules ?? []).some(
+          (r) => r.maxPrice !== undefined && r.maxPrice > r.price
+        );
+        return (
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center">
+            <p className="text-xs text-indigo-500 font-medium">{priceLabel}</p>
+            <p className="text-lg font-bold text-indigo-700 mt-0.5">
+              {hasRangeRules ? `${pc?.currencySymbol ?? "€"} — – ${pc?.currencySymbol ?? "€"} —` : "— —"}
+            </p>
+            <p className="text-[10px] text-indigo-400 mt-1">
+              {hasRangeRules ? "Preisspanne wird live berechnet" : "Preis wird live berechnet"}
+            </p>
+          </div>
+        );
+      }
+      case "contact-form": {
+        const cf = config as {
+          showFirstName?: boolean; showLastName?: boolean;
+          showEmail?: boolean; showPhone?: boolean;
+          showCompany?: boolean; showVatId?: boolean;
+          showBillingAddress?: boolean;
+          checkboxes?: Array<{ id: string; label: string; required: boolean }>;
+        };
+        const inputCls = "h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center px-3 gap-2";
+        const labelCls = "text-xs font-medium text-gray-500 mb-0.5";
+        const field = (label: string, placeholder: string, icon?: React.ReactNode) => (
+          <div>
+            <p className={labelCls}>{label}</p>
+            <div className={inputCls}>
+              {icon}
+              <span className="text-sm text-gray-400">{placeholder}</span>
+            </div>
+          </div>
+        );
+        return (
+          <div className="space-y-2.5">
+            {/* Vorname + Nachname */}
+            {(cf.showFirstName !== false || cf.showLastName !== false) && (
+              <div className={`grid gap-2 ${cf.showFirstName !== false && cf.showLastName !== false ? "grid-cols-2" : "grid-cols-1"}`}>
+                {cf.showFirstName !== false && field("Vorname", "Max")}
+                {cf.showLastName !== false && field("Nachname", "Mustermann")}
+              </div>
+            )}
+            {cf.showEmail !== false && field("E-Mail Adresse", "max@beispiel.de", <Mail size={13} className="text-gray-400 shrink-0" />)}
+            {cf.showPhone !== false && (
+              <div>
+                <p className={labelCls}>Telefonnummer</p>
+                <div className={inputCls}>
+                  <Flag size={13} className="text-gray-400 shrink-0" />
+                  <span className="text-sm text-gray-300">+49</span>
+                  <span className="text-sm text-gray-400">150 1234567</span>
+                </div>
+              </div>
+            )}
+            {cf.showCompany && field("Unternehmen", "Muster GmbH", <Building2 size={13} className="text-gray-400 shrink-0" />)}
+            {cf.showVatId && field("Umsatzsteuer-ID", "DE123456789")}
+            {cf.showBillingAddress && (
+              <div className="space-y-2">
+                <p className={labelCls}>Rechnungsadresse</p>
+                {field("Straße & Hausnummer", "Musterstraße 1")}
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <p className={labelCls}>PLZ</p>
+                    <div className={inputCls}><span className="text-sm text-gray-400">12345</span></div>
+                  </div>
+                  <div className="col-span-2">
+                    <p className={labelCls}>Ort</p>
+                    <div className={inputCls}><span className="text-sm text-gray-400">Berlin</span></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {(cf.checkboxes ?? []).length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {(cf.checkboxes ?? []).map((cb) => (
+                  <div key={cb.id} className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded border border-gray-300 bg-white shrink-0" />
+                    <span className="text-sm text-gray-500">{cb.label || "Checkbox"}{cb.required && <span className="text-red-400 ml-0.5">*</span>}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
       default:
         return (
           <div className="h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center px-3">
@@ -995,6 +1107,18 @@ function BlockPreview({
           style={{ backgroundColor: blockColor }}
         >
           {blockLabel}
+        </div>
+      )}
+
+      {/* Visibility condition indicator — always visible in edit mode */}
+      {!previewMode && (comp.visibilityConditions?.length ?? 0) > 0 && (
+        <div
+          className="absolute -top-3 left-3 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 z-10"
+          style={isSelected ? { left: "auto", marginLeft: "4px" } : {}}
+          title={`Bedingt sichtbar (${comp.visibilityConditions!.length} Bedingung${comp.visibilityConditions!.length !== 1 ? "en" : ""})`}
+        >
+          <EyeOff size={10} />
+          <span>{comp.visibilityConditions!.length}</span>
         </div>
       )}
 
@@ -1087,6 +1211,7 @@ export default function BuildEditorPage() {
   const [embedOpen, setEmbedOpen] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] =
     useState<SidebarTab>("editor");
+  const [showAIPanel, setShowAIPanel] = useState(false);
   const [pagesSubTab, setPagesSubTab] = useState<"seiten" | "ebenen">(
     "seiten"
   );
@@ -1096,12 +1221,24 @@ export default function BuildEditorPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [insertPickerIndex, setInsertPickerIndex] = useState<number | null>(null);
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showQAPanel, setShowQAPanel] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [renamingStepId, setRenamingStepId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [dragStepId, setDragStepId] = useState<string | null>(null);
+  const [dragOverStepId, setDragOverStepId] = useState<string | null>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(340);
+  const isResizingInspector = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(340);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const isResizingSidebar = useRef(false);
+  const sidebarResizeStartX = useRef(0);
+  const sidebarResizeStartWidth = useRef(220);
 
   // Helper: push history before marking dirty
   const markDirtyWithHistory = useCallback(() => {
@@ -1128,7 +1265,7 @@ export default function BuildEditorPage() {
     }
   }, [redo, setFlow]);
 
-  // ── Autosave (30 seconds after last change) ────────────────────────────────
+  // ── Autosave (5 seconds after last change, debounced) ─────────────────────
   useEffect(() => {
     if (!isDirty || !flowData) return;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
@@ -1138,7 +1275,13 @@ export default function BuildEditorPage() {
         await fetch(`/api/flows/${flowId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: flowName, settings: JSON.stringify(flowData.settings) }),
+          body: JSON.stringify({
+            name: flowName,
+            settings: JSON.stringify(flowData.settings),
+            displayRules: JSON.stringify(flowData.displayRules ?? []),
+            ...(flowData.aiPlan !== undefined ? { aiPlan: flowData.aiPlan } : {}),
+            ...(flowData.aiBriefing !== undefined ? { aiBriefing: flowData.aiBriefing } : {}),
+          }),
         });
         for (const step of flowData.steps) {
           await fetch(`/api/flows/${flowId}/steps/${step.id}`, {
@@ -1155,16 +1298,43 @@ export default function BuildEditorPage() {
           }
         }
         markSaved();
+        setLastSavedAt(new Date());
         setAutosaveStatus("saved");
-        setTimeout(() => setAutosaveStatus("idle"), 2000);
+        setTimeout(() => setAutosaveStatus("idle"), 3000);
       } catch {
         setAutosaveStatus("idle");
       }
-    }, 30000);
+    }, 5000);
     return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
   }, [isDirty, flowData, flowId, flowName, markSaved]);
 
   // Keyboard shortcuts
+  // Panel resize mouse handlers (inspector + sidebar)
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (isResizingInspector.current) {
+        const delta = resizeStartX.current - e.clientX; // drag left = wider
+        setInspectorWidth(Math.max(280, Math.min(620, resizeStartWidth.current + delta)));
+      }
+      if (isResizingSidebar.current) {
+        const delta = e.clientX - sidebarResizeStartX.current; // drag right = wider
+        setSidebarWidth(Math.max(160, Math.min(480, sidebarResizeStartWidth.current + delta)));
+      }
+    }
+    function onMouseUp() {
+      isResizingInspector.current = false;
+      isResizingSidebar.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
@@ -1267,21 +1437,40 @@ export default function BuildEditorPage() {
     markDirty();
   }
 
-  // Duplicate step/page
+  // Delete step/page
+  function handleDeleteStep(stepId: string) {
+    if (!flowData) return;
+    const visibleSteps = flowData.steps.filter((s) => s.type !== "start" && s.type !== "end");
+    if (visibleSteps.length <= 1) return; // keep at least one page
+    pushHistory(flowData);
+    setFlowData((prev) => {
+      if (!prev) return prev;
+      const newSteps = prev.steps.filter((s) => s.id !== stepId);
+      // Re-normalize sortOrder
+      let order = 0;
+      const normalized = newSteps.map((s) =>
+        s.type === "start" || s.type === "end" ? s : { ...s, sortOrder: order++ }
+      );
+      return { ...prev, steps: normalized };
+    });
+    if (selectedNodeId === stepId) selectNode(null);
+    markDirty();
+  }
+
+  // Duplicate step/page — inserts right after the source step
   function handleDuplicateStep(stepId: string) {
     if (!flowData) return;
     pushHistory(flowData);
     const original = flowData.steps.find((s) => s.id === stepId);
     if (!original) return;
     const newId = crypto.randomUUID();
-    const visibleSteps = flowData.steps.filter((s) => s.type !== "start" && s.type !== "end");
+    const sourceLabel = original.label || (original.config as { title?: string }).title || "";
     const dupStep: FlowStep = {
       ...JSON.parse(JSON.stringify(original)),
       id: newId,
-      label: `${original.label} (Kopie)`,
+      label: sourceLabel ? `${sourceLabel} (Kopie)` : "",
       positionX: original.positionX + 50,
       positionY: original.positionY + 50,
-      sortOrder: visibleSteps.length,
       components: (original.components ?? []).map((c) => ({
         ...JSON.parse(JSON.stringify(c)),
         id: crypto.randomUUID(),
@@ -1291,81 +1480,130 @@ export default function BuildEditorPage() {
     };
     setFlowData((prev) => {
       if (!prev) return prev;
-      return { ...prev, steps: [...prev.steps, dupStep] };
+      // Insert immediately after the source step in the array
+      const srcIdx = prev.steps.findIndex((s) => s.id === stepId);
+      const newSteps = [...prev.steps];
+      newSteps.splice(srcIdx + 1, 0, dupStep);
+      // Re-normalize sortOrder for all non-placeholder steps
+      let order = 0;
+      const normalized = newSteps.map((s) =>
+        s.type === "start" || s.type === "end" ? s : { ...s, sortOrder: order++ }
+      );
+      return { ...prev, steps: normalized };
     });
     selectNode(newId);
     markDirty();
   }
 
+  // Move step — drag-and-drop reorder in sidebar
+  function handleMoveStep(fromId: string, toId: string) {
+    if (fromId === toId || !flowData) return;
+    pushHistory(flowData);
+    setFlowData((prev) => {
+      if (!prev) return prev;
+      const steps = [...prev.steps];
+      const fromIdx = steps.findIndex((s) => s.id === fromId);
+      const toIdx = steps.findIndex((s) => s.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = steps.splice(fromIdx, 1);
+      steps.splice(toIdx, 0, moved!);
+      // Re-normalize sortOrder
+      let order = 0;
+      const normalized = steps.map((s) =>
+        s.type === "start" || s.type === "end" ? s : { ...s, sortOrder: order++ }
+      );
+      return { ...prev, steps: normalized };
+    });
+    markDirty();
+  }
+
   // Load flow data
-  useEffect(() => {
-    async function loadFlow() {
-      try {
-        const res = await fetch(`/api/flows/${flowId}`);
-        if (!res.ok) throw new Error("Flow not found");
-        const data = await res.json();
+  const loadFlow = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/flows/${flowId}`);
+      if (!res.ok) throw new Error("Flow not found");
+      const data = await res.json();
 
-        const flowDef: FlowDefinition = {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          description: data.description,
-          status: data.status,
-          settings: data.settings
-            ? typeof data.settings === "string"
-              ? JSON.parse(data.settings)
-              : data.settings
+      const flowDef: FlowDefinition = {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
+        status: data.status,
+        settings: data.settings
+          ? typeof data.settings === "string"
+            ? JSON.parse(data.settings)
+            : data.settings
+          : {
+              theme: { ...DEFAULT_THEME },
+              showProgressBar: true,
+              progressBarStyle: "dots" as const,
+              submitButtonText: "Submit",
+              successMessage: "Thank you!",
+            },
+        steps: (data.steps ?? []).map((s: FlowStep) => ({
+          ...s,
+          config: s.config
+            ? typeof s.config === "string"
+              ? JSON.parse(s.config as unknown as string)
+              : s.config
             : {
-                theme: { ...DEFAULT_THEME },
-                showProgressBar: true,
-                progressBarStyle: "dots" as const,
-                submitButtonText: "Submit",
-                successMessage: "Thank you!",
+                title: s.label,
+                layout: "single-column",
+                showProgress: true,
               },
-          steps: (data.steps ?? []).map((s: FlowStep) => ({
-            ...s,
-            config: s.config
-              ? typeof s.config === "string"
-                ? JSON.parse(s.config as unknown as string)
-                : s.config
-              : {
-                  title: s.label,
-                  layout: "single-column",
-                  showProgress: true,
-                },
-            components: (s.components ?? []).map((c: StepComponent) => ({
-              ...c,
-              config:
-                typeof c.config === "string"
-                  ? JSON.parse(c.config as unknown as string)
-                  : c.config,
-            })),
+          components: (s.components ?? []).map((c: StepComponent) => ({
+            ...c,
+            config:
+              typeof c.config === "string"
+                ? JSON.parse(c.config as unknown as string)
+                : c.config,
+            validation: c.validation
+              ? typeof c.validation === "string"
+                ? JSON.parse(c.validation as unknown as string)
+                : c.validation
+              : undefined,
+            visibilityConditions: c.visibilityConditions
+              ? typeof c.visibilityConditions === "string"
+                ? JSON.parse(c.visibilityConditions as unknown as string)
+                : c.visibilityConditions
+              : undefined,
           })),
-          edges: data.edges ?? [],
-          startStepId:
-            data.steps?.find((s: FlowStep) => s.type === "start")?.id ?? "",
-        };
+        })),
+        edges: data.edges ?? [],
+        startStepId:
+          data.steps?.find((s: FlowStep) => s.type === "start")?.id ?? "",
+        displayRules: data.displayRules
+          ? typeof data.displayRules === "string"
+            ? JSON.parse(data.displayRules)
+            : data.displayRules
+          : [],
+        aiPlan: data.aiPlan ?? undefined,
+        aiBriefing: data.aiBriefing ?? undefined,
+      };
 
-        setFlowData(flowDef);
-        setFlow(flowDef);
-        setFlowName(flowDef.name);
-        useEditorStore.setState({ isDirty: false, isSaving: false });
+      setFlowData(flowDef);
+      setFlow(flowDef);
+      setFlowName(flowDef.name);
+      useEditorStore.setState({ isDirty: false, isSaving: false });
 
-        // Auto-select first step
-        const firstStep = flowDef.steps.find(
-          (s) => s.type !== "start" && s.type !== "end"
-        );
-        if (firstStep) selectNode(firstStep.id);
-      } catch (err) {
-        setLoadError(
-          err instanceof Error ? err.message : "Failed to load flow"
-        );
-      } finally {
-        setIsLoading(false);
-      }
+      // Auto-select first step
+      const firstStep = flowDef.steps.find(
+        (s) => s.type !== "start" && s.type !== "end"
+      );
+      if (firstStep) selectNode(firstStep.id);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : "Failed to load flow"
+      );
+    } finally {
+      setIsLoading(false);
     }
-    loadFlow();
   }, [flowId, setFlow, selectNode]);
+
+  useEffect(() => {
+    loadFlow();
+  }, [loadFlow]);
 
   // Save handler — full sync: POST new entities, PATCH existing, DELETE removed
   async function handleSave() {
@@ -1391,7 +1629,13 @@ export default function BuildEditorPage() {
       const flowRes = await fetch(`/api/flows/${flowId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: flowName, settings: JSON.stringify(flowData.settings) }),
+        body: JSON.stringify({
+          name: flowName,
+          settings: JSON.stringify(flowData.settings),
+          displayRules: JSON.stringify(flowData.displayRules ?? []),
+          ...(flowData.aiPlan !== undefined ? { aiPlan: flowData.aiPlan } : {}),
+          ...(flowData.aiBriefing !== undefined ? { aiBriefing: flowData.aiBriefing } : {}),
+        }),
       });
       if (!flowRes.ok) throw new Error("Failed to save flow");
 
@@ -1467,6 +1711,10 @@ export default function BuildEditorPage() {
                   config: JSON.stringify(comp.config),
                   sortOrder: comp.sortOrder,
                   required: comp.required ?? false,
+                  visibilityConditions: comp.visibilityConditions
+                    ? JSON.stringify(comp.visibilityConditions)
+                    : null,
+                  visibilityLogic: comp.visibilityLogic ?? "AND",
                 }),
               }
             );
@@ -1486,6 +1734,10 @@ export default function BuildEditorPage() {
                   config: JSON.stringify(comp.config),
                   sortOrder: comp.sortOrder,
                   required: comp.required ?? false,
+                  visibilityConditions: comp.visibilityConditions
+                    ? JSON.stringify(comp.visibilityConditions)
+                    : null,
+                  visibilityLogic: comp.visibilityLogic ?? "AND",
                 }),
               }
             );
@@ -1516,14 +1768,186 @@ export default function BuildEditorPage() {
       }
 
       markSaved();
+      setLastSavedAt(new Date());
       setAutosaveStatus("saved");
-      setTimeout(() => setAutosaveStatus("idle"), 2000);
+      setTimeout(() => setAutosaveStatus("idle"), 3000);
     } catch (err) {
       console.error("Save failed:", err);
       setSaveError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
       setAutosaveStatus("idle");
       useEditorStore.setState({ isSaving: false });
     }
+  }
+
+  // AI Operations executor — applies a list of FlowOperations from the AI chat sequentially
+  async function applyAIOperations(ops: FlowOperation[]): Promise<void> {
+    if (!flowData) throw new Error("Kein Flow geladen");
+
+    // Push undo snapshot before applying
+    pushHistory(flowData);
+
+    let updatedFlow = { ...flowData };
+
+    for (const op of ops) {
+      if (op.type === "add_step") {
+        const newStep = {
+          id: crypto.randomUUID(),
+          flowId,
+          type: (op.stepType ?? "step") as "step",
+          label: op.label,
+          positionX: 300 + updatedFlow.steps.length * 220,
+          positionY: 100,
+          config: (op.config ?? { title: op.label, layout: "single-column", showProgress: true }) as unknown as import("@opensoftware/openflow-core").StepConfig,
+          components: [] as import("@opensoftware/openflow-core").StepComponent[],
+          sortOrder: updatedFlow.steps.filter(s => s.type === "step").length,
+        };
+        const res = await fetch(`/api/flows/${flowId}/steps`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...newStep, config: JSON.stringify(newStep.config) }),
+        });
+        if (!res.ok) throw new Error(`add_step fehlgeschlagen`);
+        const created = await res.json();
+        updatedFlow = { ...updatedFlow, steps: [...updatedFlow.steps, { ...newStep, id: created.id ?? newStep.id } as import("@opensoftware/openflow-core").FlowStep] };
+
+      } else if (op.type === "delete_step") {
+        const res = await fetch(`/api/flows/${flowId}/steps/${op.stepId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`delete_step fehlgeschlagen`);
+        updatedFlow = { ...updatedFlow, steps: updatedFlow.steps.filter(s => s.id !== op.stepId) };
+
+      } else if (op.type === "update_step") {
+        const step = updatedFlow.steps.find(s => s.id === op.stepId);
+        if (!step) throw new Error(`Seite ${op.stepId} nicht gefunden`);
+        const updatedStep = {
+          ...step,
+          ...(op.changes.label ? { label: op.changes.label } : {}),
+          config: op.changes.config ? { ...(step.config as unknown as Record<string, unknown>), ...op.changes.config } as unknown as import("@opensoftware/openflow-core").StepConfig : step.config,
+        };
+        const res = await fetch(`/api/flows/${flowId}/steps/${op.stepId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: updatedStep.label,
+            config: JSON.stringify(updatedStep.config),
+          }),
+        });
+        if (!res.ok) throw new Error(`update_step fehlgeschlagen`);
+        updatedFlow = { ...updatedFlow, steps: updatedFlow.steps.map(s => s.id === op.stepId ? updatedStep : s) };
+
+      } else if (op.type === "add_component") {
+        const step = updatedFlow.steps.find(s => s.id === op.stepId);
+        if (!step) throw new Error(`Seite ${op.stepId} nicht gefunden`);
+        const newComp = {
+          id: crypto.randomUUID(),
+          stepId: op.stepId,
+          componentType: op.component.componentType,
+          fieldKey: op.component.fieldKey,
+          label: op.component.label ?? op.component.fieldKey,
+          required: op.component.required ?? false,
+          config: op.component.config ?? {},
+          validation: undefined,
+          sortOrder: step.components.length,
+          visibilityConditions: undefined,
+          visibilityLogic: "AND" as const,
+        };
+        const res = await fetch(`/api/flows/${flowId}/steps/${op.stepId}/components`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...newComp, config: JSON.stringify(newComp.config) }),
+        });
+        if (!res.ok) throw new Error(`add_component fehlgeschlagen`);
+        const created = await res.json();
+        const finalComp = { ...newComp, id: created.id ?? newComp.id };
+        updatedFlow = {
+          ...updatedFlow,
+          steps: updatedFlow.steps.map(s =>
+            s.id === op.stepId ? { ...s, components: [...s.components, finalComp] } : s
+          ),
+        };
+
+      } else if (op.type === "update_component") {
+        const step = updatedFlow.steps.find(s => s.id === op.stepId);
+        const comp = step?.components.find(c => c.id === op.componentId);
+        if (!comp) throw new Error(`Komponente ${op.componentId} nicht gefunden`);
+        const updatedComp = {
+          ...comp,
+          ...(op.changes.label !== undefined ? { label: op.changes.label } : {}),
+          ...(op.changes.fieldKey !== undefined ? { fieldKey: op.changes.fieldKey } : {}),
+          ...(op.changes.required !== undefined ? { required: op.changes.required } : {}),
+          config: op.changes.config ? { ...comp.config, ...op.changes.config } : comp.config,
+        };
+        const res = await fetch(`/api/flows/${flowId}/steps/${op.stepId}/components/${op.componentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: updatedComp.label,
+            fieldKey: updatedComp.fieldKey,
+            required: updatedComp.required,
+            config: JSON.stringify(updatedComp.config),
+          }),
+        });
+        if (!res.ok) throw new Error(`update_component fehlgeschlagen`);
+        updatedFlow = {
+          ...updatedFlow,
+          steps: updatedFlow.steps.map(s =>
+            s.id === op.stepId
+              ? { ...s, components: s.components.map(c => c.id === op.componentId ? updatedComp : c) }
+              : s
+          ),
+        };
+
+      } else if (op.type === "delete_component") {
+        const res = await fetch(`/api/flows/${flowId}/steps/${op.stepId}/components/${op.componentId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`delete_component fehlgeschlagen`);
+        updatedFlow = {
+          ...updatedFlow,
+          steps: updatedFlow.steps.map(s =>
+            s.id === op.stepId ? { ...s, components: s.components.filter(c => c.id !== op.componentId) } : s
+          ),
+        };
+
+      } else if (op.type === "add_edge") {
+        const res = await fetch(`/api/flows/${flowId}/edges`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceStepId: op.sourceStepId,
+            targetStepId: op.targetStepId,
+            conditionType: op.conditionType ?? "always",
+            conditionFieldKey: op.conditionFieldKey,
+            conditionValue: op.conditionValue,
+            priority: op.priority ?? 0,
+          }),
+        });
+        if (!res.ok) throw new Error(`add_edge fehlgeschlagen`);
+        const created = await res.json();
+        updatedFlow = { ...updatedFlow, edges: [...updatedFlow.edges, created] };
+
+      } else if (op.type === "update_edge") {
+        const res = await fetch(`/api/flows/${flowId}/edges`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: op.edgeId, ...op.changes }),
+        });
+        if (!res.ok) throw new Error(`update_edge fehlgeschlagen`);
+        updatedFlow = {
+          ...updatedFlow,
+          edges: updatedFlow.edges.map(e => e.id === op.edgeId ? { ...e, ...op.changes } as import("@opensoftware/openflow-core").FlowEdge : e),
+        };
+
+      } else if (op.type === "delete_edge") {
+        const res = await fetch(`/api/flows/${flowId}/edges?edgeId=${op.edgeId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`delete_edge fehlgeschlagen`);
+        updatedFlow = { ...updatedFlow, edges: updatedFlow.edges.filter(e => e.id !== op.edgeId) };
+
+      } else if (op.type === "update_settings") {
+        updatedFlow = { ...updatedFlow, settings: { ...updatedFlow.settings, ...op.changes } as typeof updatedFlow.settings };
+      }
+    }
+
+    setFlowData(updatedFlow);
+    setFlow(updatedFlow);
+    markDirtyWithHistory();
   }
 
   // Publish handler
@@ -1738,6 +2162,21 @@ export default function BuildEditorPage() {
           isActive={activeSidebarTab === "code"}
           onClick={() => setActiveSidebarTab("code")}
         />
+        {/* Preise */}
+        <SidebarIconButton
+          icon={BadgeEuro}
+          label="Preise"
+          isActive={activeSidebarTab === "preise"}
+          onClick={() => setActiveSidebarTab("preise")}
+        />
+
+        {/* KI */}
+        <SidebarIconButton
+          icon={Sparkles}
+          label="KI"
+          isActive={showAIPanel}
+          onClick={() => setShowAIPanel((v) => !v)}
+        />
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -1758,9 +2197,35 @@ export default function BuildEditorPage() {
         />
       </div>
 
-      {/* ── Pages Panel (220px) ── */}
+      {/* ── Pages Panel — resizable ── */}
       {!sidebarCollapsed && (
-        <div className="w-[220px] shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="relative shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden" style={{ width: sidebarWidth }}>
+          {/* Drag handle — right edge */}
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+            onMouseDown={(e) => {
+              isResizingSidebar.current = true;
+              sidebarResizeStartX.current = e.clientX;
+              sidebarResizeStartWidth.current = sidebarWidth;
+              document.body.style.cursor = "col-resize";
+              document.body.style.userSelect = "none";
+              e.preventDefault();
+            }}
+          >
+            <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-indigo-400 transition-colors" />
+          </div>
+          {/* ── Flow name ── */}
+          <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+            <input
+              value={flowName}
+              onChange={(e) => { setFlowName(e.target.value); markDirty(); }}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              className="w-full text-sm font-semibold text-gray-800 bg-transparent border border-transparent rounded px-1 py-0.5 hover:border-gray-200 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-300 transition-colors truncate"
+              placeholder="Flow-Titel"
+              title="Flow-Titel bearbeiten"
+            />
+          </div>
+
           {/* ── Block Palette (replaces panel when open) ── */}
           {blockPickerOpen && selectedNodeId ? (
             <div className="flex flex-col h-full">
@@ -1871,38 +2336,52 @@ export default function BuildEditorPage() {
                       return (
                         <div
                           key={step.id}
+                          draggable
+                          onDragStart={() => setDragStepId(step.id)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverStepId(step.id); }}
+                          onDragEnd={() => { setDragStepId(null); setDragOverStepId(null); }}
+                          onDrop={(e) => { e.preventDefault(); if (dragStepId) handleMoveStep(dragStepId, step.id); setDragStepId(null); setDragOverStepId(null); }}
                           className={`group/step relative rounded-xl border-2 transition-all overflow-hidden ${
                             isActive
                               ? "border-[#4C5FD5] shadow-md"
+                              : dragOverStepId === step.id && dragStepId !== step.id
+                              ? "border-indigo-300 shadow-md bg-indigo-50/20"
                               : "border-gray-200 hover:border-gray-300 shadow-sm"
-                          }`}
+                          } ${dragStepId === step.id ? "opacity-50" : ""}`}
                         >
                           {/* Thumbnail — scaled BlockPreview */}
                           <button
-                            onClick={() => { selectNode(step.id); setSelectedBlockId(null); }}
+                            onClick={() => {
+                              selectNode(step.id);
+                              setSelectedBlockId(null);
+                              if (isPreviewMode) {
+                                useRendererStore.getState().goToStep(step.id);
+                              }
+                            }}
                             className="w-full text-left"
                           >
-                            <div className="relative bg-white overflow-hidden" style={{ height: "90px" }}>
-                              {/* Scaled page content */}
+                            <div className="relative bg-white overflow-hidden" style={{ height: "120px" }}>
+                              {/* Scaled page content — scale(0.46) maps ~420px form width into ~194px container */}
                               <div
                                 style={{
                                   position: "absolute",
                                   top: 0,
                                   left: 0,
-                                  transform: "scale(0.22)",
+                                  transform: "scale(0.46)",
                                   transformOrigin: "top left",
-                                  width: "455%",
-                                  padding: "6px 8px",
+                                  width: "218%",
+                                  padding: "12px 16px",
                                   pointerEvents: "none",
+                                  background: currentTheme.backgroundColor,
                                 }}
                               >
                                 {(step.config as { title?: string }).title && (
-                                  <div className="text-sm font-bold text-gray-800 mb-1 truncate">
+                                  <div className="font-bold text-gray-800 mb-2 truncate" style={{ fontSize: "1.125rem", color: currentTheme.headingColor }}>
                                     {(step.config as { title?: string }).title}
                                   </div>
                                 )}
                                 {comps.length === 0 ? (
-                                  <p className="text-gray-300 text-xs italic mt-6 text-center">Leere Seite</p>
+                                  <p className="text-gray-300 italic mt-8 text-center" style={{ fontSize: "0.875rem" }}>Leere Seite</p>
                                 ) : (
                                   comps.slice(0, 8).map((comp, ci) => (
                                     <BlockPreview
@@ -1960,6 +2439,7 @@ export default function BuildEditorPage() {
                               />
                             ) : (
                               <div className="flex items-center gap-1 group/name">
+                                <GripVertical size={10} className="text-gray-300 group-hover/step:text-gray-400 shrink-0 cursor-grab active:cursor-grabbing" />
                                 <p className={`text-[11px] font-semibold truncate flex-1 ${isActive ? "text-[#4C5FD5]" : step.label ? "text-gray-700" : "text-gray-400 italic"}`}>
                                   {step.label || (step.config as { title?: string }).title || `Seite ${idx + 1}`}
                                 </p>
@@ -1980,13 +2460,20 @@ export default function BuildEditorPage() {
                               {comps.length} Block{comps.length !== 1 ? "s" : ""}
                             </p>
                           </div>
-                          {/* Duplicate step button */}
+                          {/* Duplicate + Delete step buttons */}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDuplicateStep(step.id); }}
-                            className="absolute top-1 right-1 opacity-0 group-hover/step:opacity-100 transition-opacity w-5 h-5 rounded bg-white/80 border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-300"
+                            className="absolute top-1 right-7 opacity-0 group-hover/step:opacity-100 transition-opacity w-5 h-5 rounded bg-white/80 border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-300"
                             title="Seite duplizieren"
                           >
                             <CopyPlus size={10} className="text-gray-500" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteStep(step.id); }}
+                            className="absolute top-1 right-1 opacity-0 group-hover/step:opacity-100 transition-opacity w-5 h-5 rounded bg-white/80 border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-300"
+                            title="Seite löschen"
+                          >
+                            <Trash2 size={10} className="text-gray-500 hover:text-red-500" />
                           </button>
                         </div>
                       );
@@ -2120,6 +2607,16 @@ export default function BuildEditorPage() {
                   markDirtyWithHistory();
                 }}
               />
+              <div className="border-t border-gray-200" />
+              <DisplayRulesPanel
+                flowData={flowData}
+                onChange={(rules) => {
+                  setFlowData((prev) =>
+                    prev ? { ...prev, displayRules: rules } : prev
+                  );
+                  markDirtyWithHistory();
+                }}
+              />
             </div>
           )}
 
@@ -2141,6 +2638,21 @@ export default function BuildEditorPage() {
             </div>
           )}
 
+          {activeSidebarTab === "preise" && flowData?.settings && (
+            <div className="flex-1 overflow-y-auto">
+              <PricingPanel
+                settings={flowData.settings}
+                onChange={(partial) => {
+                  setFlowData((prev) => {
+                    if (!prev) return prev;
+                    return { ...prev, settings: { ...prev.settings, ...partial } };
+                  });
+                  markDirtyWithHistory();
+                }}
+              />
+            </div>
+          )}
+
           {activeSidebarTab === "integrationen" && (
             <div className="flex-1 overflow-y-auto">
               <WebhooksPanel flowId={flowId} />
@@ -2148,6 +2660,7 @@ export default function BuildEditorPage() {
               <NotificationsPanel flowId={flowId} />
             </div>
           )}
+
           </>
           )}
         </div>
@@ -2189,6 +2702,7 @@ export default function BuildEditorPage() {
               <FlowRenderer
                 key={flowData.id}
                 flow={flowData}
+                initialStepId={selectedNodeId ?? undefined}
                 theme={{
                   primaryColor: currentTheme.primaryColor,
                   backgroundColor: currentTheme.backgroundColor,
@@ -2214,6 +2728,36 @@ export default function BuildEditorPage() {
             {/* Content area */}
             {selectedStep ? (
               <div className="px-6 py-6 space-y-1">
+                {/* Price badge — shown in edit mode when pricing enabled and not hidden for this step */}
+                {flowData?.settings?.pricingConfig?.enabled &&
+                  !(selectedStep.config as Record<string, unknown>)?.hidePriceDisplay && (() => {
+                    const pc = flowData.settings!.pricingConfig!;
+                    const sym = pc.currencySymbol ?? "€";
+                    const hasRangeRules = (pc.basePriceRules ?? []).some(
+                      (r) => r.maxPrice !== undefined && r.maxPrice > r.price
+                    );
+                    const priceLabel = hasRangeRules
+                      ? `${sym} — – ${sym} —`
+                      : formatPrice(pc.basePrice ?? 0, sym);
+                    return (
+                      <div className="flex justify-end mb-2">
+                        <div
+                          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs"
+                          style={{
+                            background: `${currentTheme.primaryColor}18`,
+                            border: `1px solid ${currentTheme.primaryColor}35`,
+                          }}
+                        >
+                          <span className="text-gray-500 font-medium">{pc.label ?? "Geschätzter Preis"}</span>
+                          <span className="font-bold" style={{ color: currentTheme.primaryColor }}>
+                            {priceLabel}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()
+                }
+
                 {/* Step title / subtitle live preview */}
                 {(selectedStep.config?.title || selectedStep.config?.subtitle) && (
                   <div className="mb-5 pb-4 border-b" style={{ borderColor: currentTheme.borderColor }}>
@@ -2272,6 +2816,7 @@ export default function BuildEditorPage() {
                         onDelete={() => handleDeleteComponent(selectedStep.id, comp.id)}
                         theme={currentTheme}
                         previewMode={isPreviewMode}
+                        pricingConfig={flowData?.settings?.pricingConfig}
                       />
                     </div>
                   ))
@@ -2303,10 +2848,27 @@ export default function BuildEditorPage() {
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
           {/* Autosave status */}
           {autosaveStatus !== "idle" && (
-            <div className={`text-[11px] px-3 py-1 rounded-full shadow-sm font-medium transition-all ${
+            <div className={`text-[11px] px-3 py-1 rounded-full shadow-sm font-medium transition-all flex items-center gap-1.5 ${
               autosaveStatus === "saving" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
             }`}>
-              {autosaveStatus === "saving" ? "Automatisch speichern..." : "✓ Automatisch gespeichert"}
+              {autosaveStatus === "saving" ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Speichert...
+                </>
+              ) : (
+                <>
+                  ✓ Gespeichert
+                  {lastSavedAt && (
+                    <span className="opacity-70">
+                      {lastSavedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           )}
           <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-900 rounded-full shadow-xl">
@@ -2384,9 +2946,23 @@ export default function BuildEditorPage() {
         </div>
       </div>
 
-      {/* ── Inspector Panel (340px) — hidden in preview mode ── */}
+      {/* ── Inspector Panel — hidden in preview mode, resizable ── */}
       {!isPreviewMode && (
-        <div className="w-[340px] shrink-0 bg-white border-l border-gray-200 overflow-y-auto flex flex-col">
+        <div className="relative shrink-0 bg-white border-l border-gray-200 overflow-y-auto flex flex-col" style={{ width: inspectorWidth }}>
+          {/* Drag handle */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+            onMouseDown={(e) => {
+              isResizingInspector.current = true;
+              resizeStartX.current = e.clientX;
+              resizeStartWidth.current = inspectorWidth;
+              document.body.style.cursor = "col-resize";
+              document.body.style.userSelect = "none";
+              e.preventDefault();
+            }}
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-indigo-400 transition-colors" />
+          </div>
           <div className="px-4 py-3 border-b border-gray-100 shrink-0 flex items-center justify-between">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Inspektor
@@ -2425,6 +3001,7 @@ export default function BuildEditorPage() {
               selectedComponentId={selectedBlockId}
               onComponentSelect={setSelectedBlockId}
               allSteps={flowData?.steps}
+              pricingConfig={flowData?.settings?.pricingConfig}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center px-4">
@@ -2433,6 +3010,22 @@ export default function BuildEditorPage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── AI Chat Panel column ── */}
+      {showAIPanel && !isPreviewMode && (
+        <div className="shrink-0 w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+          <AIChatPanel
+            flow={flowData}
+            flowId={flowId}
+            onApplyOperations={applyAIOperations}
+            onUndo={() => {
+              const prev = undo();
+              if (prev) { setFlowData(prev); setFlow(prev); }
+            }}
+            onOpenPlanEdit={() => setShowPlanDialog(true)}
+          />
         </div>
       )}
 
@@ -2479,6 +3072,21 @@ export default function BuildEditorPage() {
         isPublished={flowData?.status === "published"}
         onClose={() => setEmbedOpen(false)}
       />
+
+      {/* ── Plan Edit Dialog ── */}
+      {showPlanDialog && flowData?.aiPlan && flowData?.aiBriefing && (
+        <PlanEditDialog
+          flowId={flowId}
+          initialPlan={flowData.aiPlan}
+          initialBriefing={flowData.aiBriefing}
+          onClose={() => setShowPlanDialog(false)}
+          onRegenerated={async () => {
+            setShowPlanDialog(false);
+            await loadFlow();
+            markDirty();
+          }}
+        />
+      )}
     </div>
   );
 }

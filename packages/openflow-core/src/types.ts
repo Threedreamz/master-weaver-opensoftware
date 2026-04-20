@@ -1,5 +1,27 @@
 // === Flow Definition Types ===
 
+export interface DisplayRuleCondition {
+  id: string;
+  fieldKey: string;
+  conditionType: ConditionType;
+  conditionValue?: string;
+}
+
+export interface DisplayRuleTarget {
+  stepId: string;
+  componentId: string;
+  subFieldKey?: string;
+}
+
+export interface DisplayRule {
+  id: string;
+  label?: string;
+  conditions: DisplayRuleCondition[];
+  conditionLogic: "AND" | "OR";
+  targets: DisplayRuleTarget[];
+  action: "show" | "hide";
+}
+
 export interface FlowDefinition {
   id: string;
   name: string;
@@ -10,6 +32,9 @@ export interface FlowDefinition {
   steps: FlowStep[];
   edges: FlowEdge[];
   startStepId: string;
+  displayRules?: DisplayRule[];
+  aiPlan?: string;
+  aiBriefing?: string;
 }
 
 export interface FlowSettings {
@@ -50,6 +75,33 @@ export interface FlowSettings {
     description?: string;
     imageUrl?: string;
   };
+  pricingConfig?: {
+    enabled: boolean;
+    currency: string;        // "EUR", "USD", etc.
+    currencySymbol: string;  // "€", "$"
+    label: string;           // e.g. "Geschätzter Preis"
+    basePrice?: number;      // optional fixed base amount (legacy / fallback)
+    basePriceRules?: BasePriceRule[]; // rule-based pricing (first match wins)
+  };
+}
+
+export interface BasePriceCondition {
+  /** A field key (e.g. "Länge") or a math formula (e.g. "cbrt(Länge * Breite * Höhe)").
+   *  Supported functions: cbrt, sqrt, abs, round, floor, ceil, pow, log, log10, min, max.
+   *  Operators: + - * / ^ */
+  fieldKey: string;
+  operator: "<" | ">" | "<=" | ">=" | "=" | "!=";
+  value: number;
+  unit?: string; // optional display unit, e.g. "cm" — cosmetic only, does not affect calculation
+}
+
+export interface BasePriceRule {
+  id: string;                 // stable ID for React keys / DB storage
+  conditions: BasePriceCondition[];
+  logic: "AND" | "OR";        // how conditions are combined within this rule
+  price: number;              // min price (or fixed price when maxPrice is absent)
+  maxPrice?: number;          // max price — when set and > price, shown as a range
+  label?: string;             // optional label shown in price breakdown
 }
 
 export interface FlowTheme {
@@ -67,6 +119,12 @@ export interface FlowTheme {
   transitionStyle: "none" | "fade" | "slide";
   /** Color used for selected state of cards, image-choices, radio buttons etc. Defaults to primaryColor. */
   selectionColor?: string;
+  /** Global elevation style for cards and containers. Defaults to "soft". */
+  elevationStyle?: "none" | "soft" | "elevated";
+  /** Variant for card-like components (card-selector, image-choice). Defaults to "bordered" for backward-compat. */
+  cardVariant?: "bordered" | "filled" | "elevated" | "ghost";
+  /** Variant for input fields (text-input, text-area, select). Defaults to "bordered". */
+  inputVariant?: "bordered" | "filled" | "underlined";
 }
 
 export interface FlowStep {
@@ -89,6 +147,13 @@ export interface StepConfig {
   showProgress: boolean;
 }
 
+export interface ComponentVisibilityCondition {
+  id: string;
+  fieldKey: string;
+  conditionType: ConditionType;
+  conditionValue?: string;
+}
+
 export interface StepComponent {
   id: string;
   stepId: string;
@@ -99,6 +164,8 @@ export interface StepComponent {
   validation?: ValidationRule[];
   sortOrder: number;
   required: boolean;
+  visibilityConditions?: ComponentVisibilityCondition[];
+  visibilityLogic?: "AND" | "OR";
 }
 
 export interface ValidationRule {
@@ -184,6 +251,9 @@ export interface CardOption {
   subtitle?: string;
   imageUrl?: string;
   icon?: string; // Lucide icon name
+  price?: number;
+  maxPrice?: number;             // optional upper bound of price range
+  priceModifier?: "add" | "subtract"; // defaults to "add"
 }
 
 // === Pricing Card Config ===

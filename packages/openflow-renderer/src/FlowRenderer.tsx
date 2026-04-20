@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import type { FlowDefinition } from "@opensoftware/openflow-core";
-import { resolveNextStep } from "@opensoftware/openflow-core";
+import { resolveNextStep, isComponentVisible, isComponentVisibleCombined } from "@opensoftware/openflow-core";
 import { useRendererStore } from "./rendererStore";
 import { StepRenderer } from "./StepRenderer";
 import { ProgressBar } from "./ProgressBar";
@@ -10,6 +10,7 @@ import { NavigationButtons } from "./NavigationButtons";
 import { CookieConsent } from "./CookieConsent";
 import { FlowHeader } from "./FlowHeader";
 import { FlowFooter } from "./FlowFooter";
+import { calculatePrice, formatPrice, formatPriceRange } from "./priceCalculator";
 
 /** Fully resolved theme with all defaults applied */
 export interface ResolvedTheme {
@@ -24,6 +25,12 @@ export interface ResolvedTheme {
   errorColor: string;
   /** Color for selected state of cards, image-choices, radio buttons etc. Defaults to primaryColor. */
   selectionColor: string;
+  /** Global elevation style; undefined/"none" keeps the previous flat look. */
+  elevationStyle?: "none" | "soft" | "elevated";
+  /** Variant for card-like components. */
+  cardVariant?: "bordered" | "filled" | "elevated" | "ghost";
+  /** Variant for input fields. */
+  inputVariant?: "bordered" | "filled" | "underlined";
 }
 
 export interface FlowRendererProps {
@@ -59,6 +66,8 @@ export interface FlowRendererProps {
   };
   /** Show progress bar */
   showProgress?: boolean;
+  /** If set, the flow starts on this step ID instead of the first step */
+  initialStepId?: string;
 }
 
 export function FlowRenderer({
@@ -69,6 +78,7 @@ export function FlowRenderer({
   embedMode = false,
   theme = {},
   showProgress = true,
+  initialStepId,
 }: FlowRendererProps) {
   const [loading, setLoading] = useState(!flowProp);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -198,7 +208,7 @@ export function FlowRenderer({
   // Load flow
   useEffect(() => {
     if (flowProp) {
-      initFlow(flowProp);
+      initFlow(flowProp, initialStepId);
       return;
     }
     if (apiUrl) {
@@ -280,7 +290,9 @@ export function FlowRenderer({
       useRendererStore.getState();
     clearErrors();
     let hasErrors = false;
+    const displayRules = flowDefinition.displayRules ?? [];
     for (const component of currentStep.components) {
+      if (!isComponentVisibleCombined(component, currentStep.id, displayRules, currentAnswers)) continue;
       if (component.required && !currentAnswers[component.fieldKey]) {
         setError(component.fieldKey, "Dieses Feld ist erforderlich");
         hasErrors = true;
@@ -295,50 +307,83 @@ export function FlowRenderer({
           hasErrors = true;
         }
       }
+      // Contact form: validate required sub-fields and required checkboxes
+      if (component.componentType === "contact-form" || component.componentType === "ContactForm") {
+        const cfg = component.config as {
+          showFirstName?: boolean; showLastName?: boolean;
+          showEmail?: boolean; showPhone?: boolean;
+          showCompany?: boolean; showVatId?: boolean; showBillingAddress?: boolean;
+          checkboxes?: Array<{ id: string; label: string; required: boolean }>;
+        };
+        const fv = (currentAnswers[component.fieldKey] as Record<string, unknown>) || {};
+        if (component.required) {
+          if (cfg.showFirstName !== false && !fv.firstName) { setError(component.fieldKey, "Bitte fülle alle Pflichtfelder aus"); hasErrors = true; }
+          else if (cfg.showLastName !== false && !fv.lastName) { setError(component.fieldKey, "Bitte fülle alle Pflichtfelder aus"); hasErrors = true; }
+          else if (cfg.showEmail !== false && !fv.email) { setError(component.fieldKey, "Bitte fülle alle Pflichtfelder aus"); hasErrors = true; }
+        }
+        if (cfg.showPhone !== false && fv.phone && fv.phoneValid === false) {
+          setError(component.fieldKey, "Ungültige Telefonnummer"); hasErrors = true;
+        }
+        for (const cb of cfg.checkboxes ?? []) {
+          if (cb.required && !(fv.checkboxes as Record<string, boolean> | undefined)?.[cb.id]) {
+            setError(component.fieldKey, `Pflichtfeld: "${cb.label}"`); hasErrors = true; break;
+          }
+        }
+      }
     }
     return !hasErrors;
   };
 
+  // Real steps sorted by sidebar order — used for next/prev navigation.
+  const realStepsByOrder = flowDefinition.steps
+    .filter((s) => s.type !== "start" && s.type !== "end")
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  /** Navigate to the next step without running field validation (for skip-validation buttons). */
+  const handleNextNoValidate = () => {
+    const resolved = resolveNextStep(currentStepId!, answers, flowDefinition.edges);
+    if (resolved) {
+      goToStep(resolved);
+      return;
+    }
+    const currentIdx = realStepsByOrder.findIndex((s) => s.id === currentStepId);
+    if (currentIdx !== -1 && currentIdx < realStepsByOrder.length - 1) {
+      goToStep(realStepsByOrder[currentIdx + 1]!.id);
+    }
+  };
+
   const handleNext = async () => {
     if (!validateCurrentStep()) return;
-
-    // Resolve next step via edges / conditional logic
-    const nextStepId = resolveNextStep(currentStepId, answers, flowDefinition.edges);
-
-    if (nextStepId) {
-      const nextStep = flowDefinition.steps.find((s) => s.id === nextStepId);
-      // Skip "end" placeholder steps — they signal the flow boundary but are not
-      // real pages. When the next step is "end" we still just advance; the flow
-      // completes naturally via the submit action.
-      if (nextStep && nextStep.type !== "end") {
-        goToStep(nextStepId);
-      }
-      // If nextStep.type === "end" → do nothing (no accidental submit)
-    } else {
-      // No edge leads forward from here.
-      // Fall through to sequential order: find the next real step in sortOrder.
-      const realSteps = flowDefinition.steps
-        .filter((s) => s.type !== "start" && s.type !== "end")
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      const currentIdx = realSteps.findIndex((s) => s.id === currentStepId);
-      if (currentIdx !== -1 && currentIdx < realSteps.length - 1) {
-        goToStep(realSteps[currentIdx + 1].id);
-      }
-      // On the last page with no further steps: do nothing.
-      // The user must click an explicit Submit button to send the form.
+    // Try conditional edge routing first; fall back to sort-order when no edge matches.
+    const resolved = resolveNextStep(currentStepId!, answers, flowDefinition.edges);
+    if (resolved) {
+      goToStep(resolved);
+      return;
     }
+    const currentIdx = realStepsByOrder.findIndex((s) => s.id === currentStepId);
+    if (currentIdx !== -1 && currentIdx < realStepsByOrder.length - 1) {
+      goToStep(realStepsByOrder[currentIdx + 1]!.id);
+    }
+    // On the last real page with no matching edge: do nothing — user clicks Submit.
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      // Attach calculated price to answers before submission
+      const { total: calculatedPrice } = calculatePrice(answers, flowDefinition);
+      const pricingEnabled = flowDefinition.settings?.pricingConfig?.enabled;
+      const finalAnswers = pricingEnabled
+        ? { ...answers, __calculatedPrice: calculatedPrice }
+        : answers;
+
       if (submissionApiUrl) {
         const res = await fetch(submissionApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             flowId: flowDefinition.id,
-            answers,
+            answers: finalAnswers,
             status: "completed",
             metadata: {
               userAgent: navigator.userAgent,
@@ -350,7 +395,7 @@ export function FlowRenderer({
         const data = await res.json();
         if (data.submissionId) setSubmissionId(data.submissionId);
       }
-      onSubmit?.(answers);
+      onSubmit?.(finalAnswers);
       setCompleted();
     } catch (err) {
       console.error("Submission failed:", err);
@@ -379,22 +424,40 @@ export function FlowRenderer({
       theme.primaryColor ||
       flowDefinition.settings.theme.primaryColor ||
       "#6366f1",
+    elevationStyle: flowDefinition.settings.theme.elevationStyle,
+    cardVariant: flowDefinition.settings.theme.cardVariant,
+    inputVariant: flowDefinition.settings.theme.inputVariant,
   };
 
   const { primaryColor, borderRadius } = resolvedTheme;
 
-  const nextStepId = resolveNextStep(currentStepId, answers, flowDefinition.edges);
-  const nextStep = nextStepId
-    ? flowDefinition.steps.find((s) => s.id === nextStepId)
-    : null;
-  const isLastStep = !nextStepId || nextStep?.type === "end";
+  // isLastStep: true when the current step is the last one by sort order.
+  const currentRealIdx = realStepsByOrder.findIndex((s) => s.id === currentStepId);
+  const isLastStep = currentRealIdx === realStepsByOrder.length - 1;
+
+  // Determine if the current step has any self-navigating components.
+  // Explicit buttons (button, submit-button) AND auto-nav selection components
+  // (card-selector, image-choice, radio-group, rating, slider) all handle their
+  // own navigation — no fallback NavigationButtons needed in those cases.
+  // Mirror of AUTO_NAV_TYPES in StepRenderer.tsx.
+  const SELF_NAVIGATING_TYPES = new Set([
+    "button", "submit-button", "Button", "SubmitButton",
+    "card-selector", "CardSelector",
+    "image-choice", "ImageChoice",
+    "radio-group", "RadioGroup",
+    "rating", "Rating",
+    "slider", "Slider",
+  ]);
+  const stepHasButtons = currentStep.components.some((c) =>
+    SELF_NAVIGATING_TYPES.has(c.componentType) && isComponentVisibleCombined(c, currentStep.id, flowDefinition.displayRules ?? [], answers)
+  );
 
   const headerConfig = flowDefinition.settings.header;
   const footerConfig = flowDefinition.settings.footer;
 
   return (
     <div
-      className="flow-renderer"
+      className="flow-renderer openflow-renderer-scope"
       style={{
         background: resolvedTheme.backgroundColor,
         borderRadius,
@@ -408,6 +471,19 @@ export function FlowRenderer({
       {flowDefinition.settings.customCSS && (
         <style dangerouslySetInnerHTML={{ __html: flowDefinition.settings.customCSS }} />
       )}
+
+      {/* Inject focus-ring + polish styles (uses CSS variables so inputs only need a class name) */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .openflow-renderer-scope { --of-primary: ${primaryColor}; }
+        .openflow-renderer-scope .openflow-input:focus,
+        .openflow-renderer-scope .openflow-contact-form input:focus,
+        .openflow-renderer-scope .openflow-contact-form select:focus,
+        .openflow-renderer-scope .openflow-contact-form textarea:focus {
+          outline: none;
+          border-color: var(--of-primary) !important;
+          box-shadow: 0 0 0 3px ${primaryColor}26;
+        }
+      ` }} />
 
       {/* Inject transition animation styles */}
       {flowDefinition.settings.theme.transitionStyle !== "none" && (
@@ -448,6 +524,38 @@ export function FlowRenderer({
           />
         )}
 
+        {/* Live price badge — shown when pricing enabled and not hidden for this step */}
+        {flowDefinition.settings?.pricingConfig?.enabled &&
+          !(currentStep.config as Record<string, unknown>)?.hidePriceDisplay && (() => {
+            const pc = flowDefinition.settings.pricingConfig!;
+            const priceResult = calculatePrice(answers, flowDefinition);
+            const isRange = priceResult.maxTotal !== undefined && priceResult.maxTotal !== priceResult.total;
+            const priceStr = isRange
+              ? formatPriceRange(priceResult.total, priceResult.maxTotal!, pc.currencySymbol)
+              : formatPrice(priceResult.total, pc.currencySymbol);
+            return (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background: `${primaryColor}18`,
+                  border: `1px solid ${primaryColor}35`,
+                  borderRadius: "2rem",
+                  padding: "0.375rem 0.875rem",
+                }}>
+                  <span style={{ color: resolvedTheme.textMuted, fontSize: "0.75rem", fontWeight: 500 }}>
+                    {pc.label ?? "Geschätzter Preis"}
+                  </span>
+                  <span style={{ color: primaryColor, fontSize: "0.9375rem", fontWeight: 700 }}>
+                    {priceStr}
+                  </span>
+                </div>
+              </div>
+            );
+          })()
+        }
+
         <div
           key={currentStepId}
           className={
@@ -459,18 +567,39 @@ export function FlowRenderer({
           }
         >
           <StepRenderer
-            step={currentStep}
+            step={{
+              ...currentStep,
+              components: currentStep.components.filter(c =>
+                isComponentVisibleCombined(c, currentStep.id, flowDefinition.displayRules ?? [], answers)
+              ),
+            }}
             answers={answers}
             errors={errors}
             primaryColor={primaryColor}
             theme={resolvedTheme}
+            displayRules={flowDefinition.displayRules ?? []}
             onNext={handleNext}
+            onNextSkipValidation={handleNextNoValidate}
             onBack={goBack}
             onJump={goToStep}
             onSubmit={handleSubmit}
             onValidate={validateCurrentStep}
           />
         </div>
+
+        {/* Fallback navigation buttons — shown only when the step has no button/submit-button components */}
+        {!stepHasButtons && (
+          <NavigationButtons
+            onNext={isLastStep ? handleSubmit : handleNext}
+            onBack={goBack}
+            canGoBack={canGoBack}
+            isLastStep={isLastStep}
+            isSubmitting={isSubmitting}
+            primaryColor={primaryColor}
+            submitText={flowDefinition.settings.submitButtonText || "Absenden"}
+            theme={resolvedTheme}
+          />
+        )}
 
       </div>
 

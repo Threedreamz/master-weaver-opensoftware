@@ -17,6 +17,9 @@ from handlers import convert_mesh, convert_cad, analyze_mesh, generate_heightmap
 from handlers import photogrammetry, cam_toolpath, fea_solver
 from handlers import gaussian_splat, image_to_3d, text_to_3d, nerf_training
 from handlers import apple_photogrammetry
+from handlers import reality_composer
+from handlers import vld4_import
+from handlers import drawing_to_3d
 
 
 HANDLERS = {
@@ -32,6 +35,9 @@ HANDLERS = {
     'text-to-3d': text_to_3d.handle,
     'train-nerf': nerf_training.handle,
     'apple-photogrammetry': apple_photogrammetry.handle,
+    'reality-composer': reality_composer.handle,
+    'vld4-import': vld4_import.handle,
+    'drawing-to-3d': drawing_to_3d.handle,
 }
 
 

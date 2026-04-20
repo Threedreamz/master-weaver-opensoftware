@@ -11,7 +11,36 @@ import { SLASliceEngine, FDMSliceEngine, BUILTIN_PROFILES, listProfiles, getProf
 import { STLConverter } from '@mw/open3d-converter';
 import type { SliceConfig, PrinterProfile, BoundingBox } from '@mw/open3d-types';
 
+/**
+ * /slicer — dual-mode page.
+ *
+ * - If NEXT_PUBLIC_OPENSLICER_URL is set (production / authenticated bubble
+ *   deployments), render an iframe pointing at the canonical openslicer app
+ *   (port 4175). openslicer handles persistence, printer profiles from the
+ *   farm, and the full admin flow.
+ * - Otherwise fall back to the built-in client-side PoC below — useful for
+ *   guest demos, offline use, and marketing pages where openslicer isn't
+ *   reachable. The PoC uses the same @mw/open3d-slicer engines and stays in
+ *   sync with the canonical slicer's algorithms via that package.
+ */
 export default function SlicerPage() {
+  const openslicerUrl = process.env.NEXT_PUBLIC_OPENSLICER_URL;
+  if (openslicerUrl) {
+    return (
+      <div className="page" style={{ padding: 0, height: 'calc(100vh - 64px)' }}>
+        <iframe
+          src={openslicerUrl}
+          title="OpenSlicer"
+          style={{ width: '100%', height: '100%', border: 'none' }}
+          allow="clipboard-read; clipboard-write"
+        />
+      </div>
+    );
+  }
+  return <SlicerPoC />;
+}
+
+function SlicerPoC() {
   const [technology, setTechnology] = useState('fdm');
   const [selectedPrinter, setSelectedPrinter] = useState('bambu-x1c');
   const [layerHeight, setLayerHeight] = useState(0.2);

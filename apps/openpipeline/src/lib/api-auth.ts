@@ -6,17 +6,14 @@ import { getPipelineRolle } from "./permissions";
 
 /**
  * Get the current user ID.
- * Dev mode: reads X-User-Id header or ?userId query param.
- * Prod: will read from NextAuth session (not yet wired).
+ * Reads from middleware-injected x-user-id header (set from JWT),
+ * falls back to manual header for dev/testing.
  */
 export async function getCurrentUserId(): Promise<string | null> {
   const h = await headers();
+  // Middleware sets x-user-id from JWT token
   const userId = h.get("x-user-id");
-  if (userId) return userId;
-  // TODO: NextAuth session integration
-  // const session = await auth();
-  // return session?.user?.id ?? null;
-  return null;
+  return userId || null;
 }
 
 /**
@@ -44,7 +41,7 @@ export async function requirePipelineAccess(pipelineId: string): Promise<{
 
   const rolle = getPipelineRolle(userId, mitglieder);
 
-  // If no members exist yet, first user with X-User-Id acts as vorgesetzter (dev mode)
+  // If no members exist yet, first user acts as vorgesetzter
   if (mitglieder.length === 0) {
     return { userId, rolle: "vorgesetzter", vertrauensLevel: 3, zugewieseneStufen: null };
   }
@@ -71,7 +68,7 @@ export async function requirePipelineAccess(pipelineId: string): Promise<{
 export async function requireVorgesetzter(pipelineId: string): Promise<{ userId: string }> {
   const access = await requirePipelineAccess(pipelineId);
   if (access.rolle !== "vorgesetzter") {
-    throw new Response(JSON.stringify({ error: "Nur Vorgesetzte dürfen diese Aktion ausführen" }), {
+    throw new Response(JSON.stringify({ error: "Nur Vorgesetzte duerfen diese Aktion ausfuehren" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
     });

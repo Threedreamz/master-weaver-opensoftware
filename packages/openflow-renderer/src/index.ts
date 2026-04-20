@@ -6,6 +6,8 @@ export { NavigationButtons } from "./NavigationButtons";
 export { useRendererStore } from "./rendererStore";
 export type { FlowRendererProps, ResolvedTheme } from "./FlowRenderer";
 export type { RendererState } from "./rendererStore";
+export { calculatePrice, formatPrice } from "./priceCalculator";
+export type { PriceResult, PriceBreakdownItem } from "./priceCalculator";
 export { CookieConsent } from "./CookieConsent";
 export type { CookieConsentProps } from "./CookieConsent";
 export { FlowHeader } from "./FlowHeader";

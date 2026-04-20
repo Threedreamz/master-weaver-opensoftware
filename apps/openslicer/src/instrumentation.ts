@@ -1,0 +1,78 @@
+/**
+ * Next.js instrumentation hook — runs ONCE per server process at boot,
+ * BEFORE any route handler is invoked.
+ *
+ * Must live at src/instrumentation.ts (not app-root) because openslicer uses
+ * the src/ layout — Next.js only picks up the file from one place depending
+ * on that. Previous root-level copy was silently ignored and every query
+ * against slicer_printer_profiles returned 500.
+ *
+ * Idempotent: migrate() is a no-op once __drizzle_migrations is up-to-date,
+ * and the seed script checks for an existing "Demo Overhang Test" row before
+ * inserting. Safe to run on every container start.
+ *
+ * Failure mode: any error is logged with [openslicer:boot] prefix and
+ * re-thrown so the container crashes loudly instead of serving 500s silently.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  const { mkdirSync, existsSync } = await import("fs");
+  const { dirname, resolve } = await import("path");
+  const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
+
+  const dbPath = (process.env.DATABASE_URL || "./data/openslicer.db").replace(/^file:/, "");
+  const dataDir = dirname(dbPath);
+
+  try {
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+      console.log(`[openslicer:boot] created data dir ${dataDir}`);
+    }
+
+    const { db } = await import("./db/index");
+
+    // In Next 16 standalone, cwd is `/app` (monorepo root) because the CMD is
+    // `node apps/openslicer/server.js` from WORKDIR /app — so a bare
+    // `drizzle/migrations` relative path would resolve to `/app/drizzle/migrations`
+    // which does NOT exist. The Dockerfile bakes migrations at
+    // `/app/apps/openslicer/drizzle/migrations`. Prefer an explicit env var
+    // (OPENSLICER_MIGRATIONS_DIR), fall back to the apps/openslicer path in
+    // production and the local relative path in dev (cwd = apps/openslicer).
+    const migrationsFolder = process.env.OPENSLICER_MIGRATIONS_DIR
+      ? resolve(process.env.OPENSLICER_MIGRATIONS_DIR)
+      : process.env.NODE_ENV === "production"
+        ? "/app/apps/openslicer/drizzle/migrations"
+        : resolve(process.cwd(), "drizzle/migrations");
+    console.log(`[openslicer:boot] running migrations from ${migrationsFolder}`);
+    migrate(db as never, { migrationsFolder });
+    console.log(`[openslicer:boot] migrations complete`);
+
+    try {
+      const { eq } = await import("drizzle-orm");
+      const { slicerModels } = await import("./db/schema");
+      const sentinel = (db as never as {
+        select: () => {
+          from: (t: unknown) => { where: (c: unknown) => { get: () => unknown } };
+        };
+      })
+        .select()
+        .from(slicerModels)
+        .where(eq((slicerModels as never as { name: unknown }).name, "Demo Overhang Test"))
+        .get();
+
+      if (!sentinel) {
+        console.log(`[openslicer:boot] sentinel missing, running demo seed`);
+        await import("../scripts/seed-demo");
+        console.log(`[openslicer:boot] demo seed complete`);
+      } else {
+        console.log(`[openslicer:boot] sentinel found, skipping seed`);
+      }
+    } catch (seedErr) {
+      console.error(`[openslicer:boot] demo seed FAILED (non-fatal):`, seedErr);
+    }
+  } catch (err) {
+    console.error(`[openslicer:boot] FATAL — db init failed:`, err);
+    throw err;
+  }
+}

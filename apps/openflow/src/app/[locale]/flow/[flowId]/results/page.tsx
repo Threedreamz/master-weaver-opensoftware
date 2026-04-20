@@ -758,16 +758,51 @@ export default function ResultsPage() {
                             Object.keys(sub.answers).length > 0 ? (
                               <div className="grid grid-cols-2 gap-2 text-xs">
                                 {Object.entries(sub.answers).map(
-                                  ([key, value]) => (
-                                    <div key={key} className="flex gap-2">
-                                      <span className="font-medium text-gray-500 min-w-[120px]">
-                                        {key}:
-                                      </span>
-                                      <span className="text-gray-800">
-                                        {String(value)}
-                                      </span>
-                                    </div>
-                                  )
+                                  ([key, value]) => {
+                                    const isFileList =
+                                      Array.isArray(value) &&
+                                      value.length > 0 &&
+                                      typeof value[0] === "object" &&
+                                      value[0] !== null &&
+                                      "url" in (value[0] as Record<string, unknown>);
+                                    return (
+                                      <div key={key} className="flex gap-2">
+                                        <span className="font-medium text-gray-500 min-w-[120px]">
+                                          {key}:
+                                        </span>
+                                        <span className="text-gray-800">
+                                          {isFileList ? (
+                                            <span className="flex flex-col gap-0.5">
+                                              {(value as Array<{ url: string; name: string; size?: number }>).map(
+                                                (f, i) => (
+                                                  <a
+                                                    key={i}
+                                                    href={f.url}
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    className="text-indigo-600 hover:underline"
+                                                  >
+                                                    {f.name}
+                                                    {typeof f.size === "number"
+                                                      ? ` (${
+                                                          f.size < 1024
+                                                            ? `${f.size} B`
+                                                            : f.size < 1024 * 1024
+                                                            ? `${(f.size / 1024).toFixed(1)} KB`
+                                                            : `${(f.size / 1024 / 1024).toFixed(1)} MB`
+                                                        })`
+                                                      : ""}
+                                                  </a>
+                                                )
+                                              )}
+                                            </span>
+                                          ) : (
+                                            String(value)
+                                          )}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
                                 )}
                               </div>
                             ) : (

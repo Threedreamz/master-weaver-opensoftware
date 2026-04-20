@@ -45,6 +45,8 @@ export async function POST(
       validation,
       sortOrder,
       required,
+      visibilityConditions,
+      visibilityLogic,
     } = body;
 
     if (!componentType || !fieldKey) {
@@ -68,6 +70,12 @@ export async function POST(
         : undefined,
       sortOrder: sortOrder ?? 0,
       required: required ?? false,
+      visibilityConditions: visibilityConditions
+        ? typeof visibilityConditions === "string"
+          ? visibilityConditions
+          : JSON.stringify(visibilityConditions)
+        : undefined,
+      visibilityLogic: visibilityLogic ?? "AND",
     };
 
     const [component] = await db

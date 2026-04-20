@@ -1,8 +1,9 @@
 "use client";
 
 import { Draggable } from "@hello-pangea/dnd";
-import { Clock, User, AlertTriangle, CheckSquare } from "lucide-react";
+import { Clock, User, AlertTriangle, Calendar } from "lucide-react";
 import type { Karte } from "@opensoftware/db/openpipeline";
+import { getDueDateStatus, formatDate } from "@/lib/date-utils";
 
 const PRIORITY_COLORS: Record<string, string> = {
   kritisch: "border-l-red-500",
@@ -19,6 +20,12 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   abgebrochen: { label: "Abgebr.", className: "bg-zinc-800 text-zinc-500" },
 };
 
+const DUE_DATE_CLASSES: Record<string, string> = {
+  overdue: "bg-red-900/50 text-red-300",
+  soon: "bg-yellow-900/50 text-yellow-300",
+  normal: "bg-zinc-700 text-zinc-400",
+};
+
 interface KanbanKarteProps {
   karte: Karte;
   index: number;
@@ -28,6 +35,7 @@ interface KanbanKarteProps {
 export function KanbanKarte({ karte, index, onKlick }: KanbanKarteProps) {
   const priorityClass = PRIORITY_COLORS[karte.prioritaet] ?? "border-l-zinc-600";
   const statusBadge = STATUS_BADGES[karte.status];
+  const dueDateStatus = getDueDateStatus(karte.faelligAm);
 
   return (
     <Draggable draggableId={karte.id} index={index}>
@@ -57,6 +65,13 @@ export function KanbanKarte({ karte, index, onKlick }: KanbanKarteProps) {
               </span>
             )}
 
+            {dueDateStatus && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5 ${DUE_DATE_CLASSES[dueDateStatus]}`}>
+                <Calendar className="w-3 h-3" />
+                {formatDate(karte.faelligAm)}
+              </span>
+            )}
+
             {karte.zugewiesenAn && (
               <span className="flex items-center gap-0.5 text-[10px] text-zinc-400">
                 <User className="w-3 h-3" />
@@ -76,7 +91,7 @@ export function KanbanKarte({ karte, index, onKlick }: KanbanKarteProps) {
 
             {karte.labels && karte.labels.length > 0 && (
               <div className="flex gap-1">
-                {karte.labels.slice(0, 2).map((label) => (
+                {karte.labels.slice(0, 3).map((label) => (
                   <span key={label} className="text-[10px] px-1 py-0.5 rounded bg-zinc-700 text-zinc-300">
                     {label}
                   </span>

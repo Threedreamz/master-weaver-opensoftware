@@ -35,7 +35,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    const allowedFields: string[] = ["name", "slug", "description", "settings", "status"];
+    const allowedFields: string[] = ["name", "slug", "description", "settings", "status", "displayRules", "aiPlan", "aiBriefing"];
     const updateData: Record<string, unknown> = {};
     for (const field of allowedFields) {
       if (body[field] !== undefined) {

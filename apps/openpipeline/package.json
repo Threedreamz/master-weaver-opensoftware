@@ -10,15 +10,20 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@opensoftware/config": "workspace:*",
+    "@opensoftware/core-types": "workspace:*",
     "@opensoftware/db": "workspace:*",
+    "@opensoftware/openpipeline-client": "workspace:*",
     "@opensoftware/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.2.1",
+    "@auth/drizzle-adapter": "^1.11.1",
     "better-sqlite3": "^12.6.2",
+    "next-auth": "5.0.0-beta.30",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^0.576.0",
@@ -38,6 +43,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.9",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.0"
   }
 }

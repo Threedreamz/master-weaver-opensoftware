@@ -1,0 +1,34 @@
+{
+  "name": "@opensoftware/openpipeline-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical event schema + lightweight HTTP publisher for cross-module sync via OpenPipeline. Modules import this to emit 'customer.created' / 'order.placed' / 'job.completed' etc. without knowing openpipeline's internal tables.",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./events": {
+      "types": "./src/events.ts",
+      "default": "./dist/events.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opensoftware/core-types": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

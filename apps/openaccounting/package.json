@@ -15,6 +15,9 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
     "@opensoftware/config": "workspace:*",
+    "@opensoftware/core-adapters": "workspace:*",
+    "@opensoftware/core-types": "workspace:*",
+    "@opensoftware/openpipeline-client": "workspace:*",
     "@opensoftware/db": "workspace:*",
     "@opensoftware/integrations": "workspace:*",
     "@opensoftware/ui": "workspace:*",

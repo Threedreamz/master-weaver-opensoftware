@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkApiAuth, getAuthUser } from "@/lib/api-auth";
+import { callClaudeCli } from "@/lib/claude-cli";
 import { createAsset } from "@/db/queries/collaboration";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
@@ -105,20 +106,9 @@ export async function POST(request: NextRequest) {
     let svgContent: string;
     let aiUsed = false;
 
-    // ── Try Anthropic AI generation ──────────────────────────────────────────
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        const Anthropic = (await import("@anthropic-ai/sdk")).default;
-        const client = new Anthropic({ apiKey });
-
-        const message = await client.messages.create({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          messages: [
-            {
-              role: "user",
-              content: `Create a simple, clean SVG icon for: "${prompt}".
+    // ── Try Claude CLI for AI generation ─────────────────────────────────────
+    try {
+      const aiPrompt = `Create a simple, clean SVG icon for: "${prompt}".
 Style: ${style}. Size: ${size}x${size}px. Color: ${color}.
 Requirements:
 - Return ONLY the SVG code, no explanation
@@ -127,32 +117,18 @@ Requirements:
 - Use fill="${color}" for filled style
 - Keep it simple and recognizable, like lucide icons
 - No text elements
-- The SVG must be valid and self-contained`,
-            },
-          ],
-        });
+- The SVG must be valid and self-contained`;
 
-        const content = message.content[0];
-        if (content.type === "text") {
-          const text = content.text.trim();
-          // Extract SVG from the response
-          const svgMatch = text.match(/<svg[\s\S]*<\/svg>/i);
-          if (svgMatch) {
-            svgContent = svgMatch[0];
-            aiUsed = true;
-          } else {
-            // Fallback if AI didn't return valid SVG
-            svgContent = generateFallbackIcon(prompt, style, size, color);
-          }
-        } else {
-          svgContent = generateFallbackIcon(prompt, style, size, color);
-        }
-      } catch (err) {
-        console.error("[AI generate-icon] Anthropic error, using fallback:", err);
+      const text = (await callClaudeCli(aiPrompt)).trim();
+      const svgMatch = text.match(/<svg[\s\S]*<\/svg>/i);
+      if (svgMatch) {
+        svgContent = svgMatch[0];
+        aiUsed = true;
+      } else {
         svgContent = generateFallbackIcon(prompt, style, size, color);
       }
-    } else {
-      // ── Fallback: generate geometric SVG ─────────────────────────────────
+    } catch (err) {
+      console.error("[AI generate-icon] Claude CLI error, using fallback:", err);
       svgContent = generateFallbackIcon(prompt, style, size, color);
     }
 

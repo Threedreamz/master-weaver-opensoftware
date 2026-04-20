@@ -6,6 +6,10 @@ export type {
   FlowStep,
   StepConfig,
   StepComponent,
+  ComponentVisibilityCondition,
+  DisplayRuleCondition,
+  DisplayRuleTarget,
+  DisplayRule,
   ValidationRule,
   FlowEdge,
   ConditionType,
@@ -43,7 +47,11 @@ export type {
 } from "./types";
 
 // Engine
-export { resolveNextStep, evaluateCondition, getAvailableFieldKeys, validateFlowDefinition } from "./flow-engine";
+export { resolveNextStep, evaluateCondition, isComponentVisible, isComponentVisibleCombined, isSubFieldVisibleByRules, getAvailableFieldKeys, validateFlowDefinition } from "./flow-engine";
+
+// Contact form subfields
+export { CONTACT_FORM_SUBFIELDS } from "./contact-form-fields";
+export type { ContactFormSubFieldKey } from "./contact-form-fields";
 
 // Registry
 export {

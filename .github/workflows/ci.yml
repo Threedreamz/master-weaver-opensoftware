@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
     branches: [main, dev]
 
 jobs:
-  ci:
-    name: Build, Lint, Type Check & Test
+  node:
+    name: Node — Build, Lint, Type Check & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -37,3 +37,25 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  python:
+    name: Python — Open3D handler tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: runtimes/open3d-python
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest zstandard trimesh numpy opencv-python-headless shapely Pillow mapbox-earcut
+
+      - name: Run pytest
+        working-directory: runtimes/open3d-python
+        run: pytest tests/ -v

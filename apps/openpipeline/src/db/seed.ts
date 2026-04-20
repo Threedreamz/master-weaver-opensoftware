@@ -62,6 +62,7 @@ sqliteDb.exec(`
     quelle TEXT NOT NULL DEFAULT 'manuell',
     quelle_referenz TEXT,
     labels TEXT,
+    ist_vorlage INTEGER NOT NULL DEFAULT 0,
     metadata TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -125,6 +126,122 @@ sqliteDb.exec(`
     bedingungen TEXT,
     aktionen TEXT,
     aktiv INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_listenbeschreibung (
+    id TEXT PRIMARY KEY,
+    stufe_id TEXT NOT NULL REFERENCES pip_stufen(id) ON DELETE CASCADE,
+    was TEXT NOT NULL,
+    warum TEXT,
+    wie TEXT,
+    video_url TEXT,
+    video_titel TEXT,
+    ist_engpass INTEGER NOT NULL DEFAULT 0,
+    verantwortlicher_user_id TEXT,
+    onboarding_checkliste TEXT,
+    erstellt_von TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS pip_listenbeschreibung_stufe_idx ON pip_listenbeschreibung(stufe_id);
+
+  CREATE TABLE IF NOT EXISTS pip_labels (
+    id TEXT PRIMARY KEY,
+    pipeline_id TEXT NOT NULL REFERENCES pip_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    farbe TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_karten_labels (
+    id TEXT PRIMARY KEY,
+    karte_id TEXT NOT NULL REFERENCES pip_karten(id) ON DELETE CASCADE,
+    label_id TEXT NOT NULL REFERENCES pip_labels(id) ON DELETE CASCADE
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS pip_karten_labels_unique_idx ON pip_karten_labels(karte_id, label_id);
+
+  CREATE TABLE IF NOT EXISTS pip_karten_mitglieder (
+    id TEXT PRIMARY KEY,
+    karte_id TEXT NOT NULL REFERENCES pip_karten(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    rolle TEXT NOT NULL DEFAULT 'mitarbeiter',
+    zugewiesen_am INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS pip_karten_mitglieder_unique_idx ON pip_karten_mitglieder(karte_id, user_id);
+
+  CREATE TABLE IF NOT EXISTS pip_kommentare (
+    id TEXT PRIMARY KEY,
+    karte_id TEXT NOT NULL REFERENCES pip_karten(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    inhalt TEXT NOT NULL,
+    erwaehnte_user TEXT,
+    bearbeitet_am INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_custom_field_definitionen (
+    id TEXT PRIMARY KEY,
+    pipeline_id TEXT NOT NULL REFERENCES pip_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    typ TEXT NOT NULL,
+    optionen TEXT,
+    ist_prio INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    pflichtfeld INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_custom_field_werte (
+    id TEXT PRIMARY KEY,
+    karte_id TEXT NOT NULL REFERENCES pip_karten(id) ON DELETE CASCADE,
+    feld_id TEXT NOT NULL REFERENCES pip_custom_field_definitionen(id) ON DELETE CASCADE,
+    wert TEXT,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS pip_cf_werte_unique_idx ON pip_custom_field_werte(karte_id, feld_id);
+
+  CREATE TABLE IF NOT EXISTS pip_anhaenge (
+    id TEXT PRIMARY KEY,
+    karte_id TEXT NOT NULL REFERENCES pip_karten(id) ON DELETE CASCADE,
+    dateiname TEXT NOT NULL,
+    originalname TEXT NOT NULL,
+    groesse INTEGER NOT NULL,
+    mimetype TEXT NOT NULL,
+    pfad TEXT NOT NULL,
+    hochgeladen_von TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_benachrichtigungen (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    typ TEXT NOT NULL,
+    karte_id TEXT REFERENCES pip_karten(id) ON DELETE CASCADE,
+    pipeline_id TEXT REFERENCES pip_pipelines(id) ON DELETE CASCADE,
+    titel TEXT NOT NULL,
+    nachricht TEXT,
+    gelesen INTEGER NOT NULL DEFAULT 0,
+    link TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_filter_presets (
+    id TEXT PRIMARY KEY,
+    pipeline_id TEXT NOT NULL REFERENCES pip_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    erstellt_von TEXT NOT NULL,
+    ist_global INTEGER NOT NULL DEFAULT 0,
+    filter TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS pip_automation_log (
+    id TEXT PRIMARY KEY,
+    automatisierung_id TEXT NOT NULL REFERENCES pip_automatisierungen(id) ON DELETE CASCADE,
+    karte_id TEXT,
+    ergebnis TEXT NOT NULL,
+    details TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 `);

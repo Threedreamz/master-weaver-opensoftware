@@ -11,9 +11,8 @@
   },
   "dependencies": {
     "express": "^5.0.0",
-    "@mw/open3d-types": "file:../../../master-weaver-master/packages/open3d-types",
-    "@mw/open3d-converter": "file:../../../master-weaver-master/packages/open3d-converter",
-    "@mw/open3d-mesh": "file:../../../master-weaver-master/packages/open3d-mesh"
+    "@opensoftware/queue": "workspace:*",
+    "@opensoftware/core-types": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

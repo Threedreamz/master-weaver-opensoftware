@@ -1,0 +1,46 @@
+{
+  "name": "@opensoftware/queue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Async job queue for OpenSoftware modules. BullMQ-backed for production (Redis), in-memory backend for dev/test/CI. Shared CanonicalJob shape via @opensoftware/core-types.",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./memory": {
+      "types": "./src/memory-backend.ts",
+      "default": "./dist/memory-backend.js"
+    },
+    "./redis": {
+      "types": "./src/redis-backend.ts",
+      "default": "./dist/redis-backend.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opensoftware/core-types": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "peerDependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "bullmq": { "optional": true },
+    "ioredis": { "optional": true }
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

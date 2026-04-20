@@ -1,0 +1,53 @@
+{
+  "name": "@opensoftware/core-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical wire-format types shared across all OpenSoftware modules — Customer, Organization, Order, File, Job. Each module keeps its own native schema and translates via @opensoftware/core-adapters.",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./customer": {
+      "types": "./src/customer.ts",
+      "default": "./dist/customer.js"
+    },
+    "./organization": {
+      "types": "./src/organization.ts",
+      "default": "./dist/organization.js"
+    },
+    "./order": {
+      "types": "./src/order.ts",
+      "default": "./dist/order.js"
+    },
+    "./file": {
+      "types": "./src/file.ts",
+      "default": "./dist/file.js"
+    },
+    "./job": {
+      "types": "./src/job.ts",
+      "default": "./dist/job.js"
+    },
+    "./identity": {
+      "types": "./src/identity.ts",
+      "default": "./dist/identity.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

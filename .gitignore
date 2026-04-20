@@ -31,3 +31,7 @@ public/uploads/
 .serena/
 .vercel/
 .claude/worktrees/
+
+# Python virtualenvs (per-machine, recreated via pip install)
+runtimes/open3d-python/.venv/
+**/.venv/

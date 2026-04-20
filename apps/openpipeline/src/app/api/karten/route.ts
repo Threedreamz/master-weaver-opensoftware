@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { runAutomations } from "@/lib/automation-engine";
 
 // POST /api/karten — Create a card
 export async function POST(req: NextRequest) {
@@ -47,5 +48,14 @@ export async function POST(req: NextRequest) {
     .run();
 
   const karte = db.select().from(schema.pipKarten).where(eq(schema.pipKarten.id, id)).get();
+
+  // Run automations
+  await runAutomations({
+    typ: "karte_erstellt",
+    karteId: id,
+    pipelineId,
+    stufeId,
+  });
+
   return NextResponse.json(karte, { status: 201 });
 }

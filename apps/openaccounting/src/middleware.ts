@@ -12,7 +12,7 @@ const intlMiddleware = createIntlMiddleware(routing);
  * Public path prefixes that do not require authentication.
  * Everything else requires a valid session.
  */
-const PUBLIC_PATH_PREFIXES = ["/login", "/api/auth"];
+const PUBLIC_PATH_PREFIXES = ["/login", "/api/auth", "/api/health"];
 
 function isPublicPath(pathname: string): boolean {
   // Strip locale prefix (e.g., /en/login -> /login)
@@ -25,13 +25,8 @@ function isPublicPath(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Let health check through without auth
-  if (pathname === "/api/health") {
-    return NextResponse.next();
-  }
-
-  // Let API auth routes through without intl middleware
-  if (pathname.startsWith("/api/auth")) {
+  // Let health check and auth routes through without auth or intl middleware
+  if (pathname === "/api/health" || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 
@@ -63,5 +58,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|_vercel|.*\\..*).*)" ],
+  matcher: ["/((?!_next|_vercel|api/health|.*\\..*).*)" ],
 };

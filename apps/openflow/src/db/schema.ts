@@ -81,6 +81,9 @@ export const flows = sqliteTable("flows", {
   description: text("description"),
   status: text("status", { enum: ["draft", "published", "archived"] }).default("draft").notNull(),
   settings: text("settings"), // JSON: FlowSettings
+  displayRules: text("display_rules"), // JSON: DisplayRule[]
+  aiPlan: text("ai_plan"),
+  aiBriefing: text("ai_briefing"),
   createdBy: text("created_by").references(() => users.id),
   // Review/Approval workflow
   lastEditedBy: text("last_edited_by").references(() => users.id),
@@ -139,6 +142,8 @@ export const stepComponents = sqliteTable("step_components", {
   validation: text("validation"), // JSON: ValidationRule[]
   sortOrder: integer("sort_order").default(0).notNull(),
   required: integer("required", { mode: "boolean" }).default(false).notNull(),
+  visibilityConditions: text("visibility_conditions"), // JSON: ComponentVisibilityCondition[]
+  visibilityLogic: text("visibility_logic", { enum: ["AND", "OR"] }).default("AND"),
 }, (table) => [
   index("step_components_step_idx").on(table.stepId),
 ]);
@@ -288,6 +293,22 @@ export const assetReferences = sqliteTable("asset_references", {
 }, (table) => [
   index("asset_refs_asset_idx").on(table.assetId),
   index("asset_refs_flow_idx").on(table.flowId),
+]);
+
+// ==================== UPLOADS (form-submission file uploads) ====================
+
+export const uploads = sqliteTable("uploads", {
+  id: text("id").primaryKey(),                // uuid
+  flowId: text("flow_id"),                    // optional, for cleanup on flow delete
+  submissionId: text("submission_id"),        // optional, set when attached to a submission
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  storagePath: text("storage_path").notNull(),  // relative path under apps/openflow/.uploads/
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+}, (table) => [
+  index("uploads_flow_idx").on(table.flowId),
+  index("uploads_submission_idx").on(table.submissionId),
 ]);
 
 // ==================== QA FINDINGS ====================

@@ -76,6 +76,7 @@ interface InspectorSettingsProps {
   onStepChange: (step: FlowStep) => void;
   selectedComponentId: string | null;
   onComponentSelect: (id: string | null) => void;
+  pricingEnabled?: boolean;
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -137,6 +138,7 @@ export default function InspectorSettings({
   onStepChange,
   selectedComponentId,
   onComponentSelect,
+  pricingEnabled = false,
 }: InspectorSettingsProps) {
   const inputClass =
     "w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400";
@@ -223,6 +225,20 @@ export default function InspectorSettings({
             onChange={(v) => updateStepConfig("showProgress", v)}
           />
         </div>
+
+        {/* Per-step price visibility — only when pricing is enabled globally */}
+        {pricingEnabled && (
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-xs text-gray-500">Preis anzeigen</label>
+              <p className="text-[11px] text-gray-400 mt-0.5">Preisanzeige auf dieser Seite</p>
+            </div>
+            <Toggle
+              checked={!(step.config as Record<string, unknown>)?.hidePriceDisplay}
+              onChange={(v) => updateStepConfig("hidePriceDisplay", !v)}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Component Settings ── */}
@@ -244,6 +260,20 @@ export default function InspectorSettings({
               onChange={(v) => updateComponentRequired(selectedComponent.id, v)}
             />
           </div>
+
+          {/* Skip validation toggle — buttons only */}
+          {selectedComponent.componentType === "button" && (
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs text-gray-600 font-medium">Validierung überspringen</label>
+                <p className="text-[11px] text-gray-400 mt-0.5">Button navigiert ohne Pflichtfeld-Prüfung</p>
+              </div>
+              <Toggle
+                checked={!!((selectedComponent.config as Record<string, unknown>)?.skipValidation)}
+                onChange={(v) => updateComponentConfig(selectedComponent.id, "skipValidation", v)}
+              />
+            </div>
+          )}
 
           {/* ── Text Formatting ── */}
           {isTextComponent && (

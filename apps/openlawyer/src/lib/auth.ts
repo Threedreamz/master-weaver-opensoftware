@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
-import { db, schema } from "@/db";
 import Credentials from "next-auth/providers/credentials";
 import type { Provider } from "next-auth/providers";
 import {
@@ -11,6 +10,14 @@ import {
   getPermissionsForRole,
   OPENLAWYER_PERMISSIONS,
 } from "@opensoftware/config/rbac";
+
+// Lazy-import db to avoid triggering better-sqlite3 / fs at module evaluation
+// time (which breaks Edge Runtime and next build page data collection).
+function getDb() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { db, schema } = require("@/db") as typeof import("@/db");
+  return { db, schema };
+}
 
 const providers: Provider[] = [];
 
@@ -61,17 +68,38 @@ if (process.env.NODE_ENV === "development") {
   );
 }
 
+// Build a lazy adapter that defers DrizzleAdapter creation until first use.
+// This avoids calling DrizzleAdapter(db) at module evaluation time where `db`
+// is still a Proxy stub — the adapter would reject it with
+// "Unsupported database type (object)".
+function createLazyAdapter() {
+  let _adapter: ReturnType<typeof DrizzleAdapter> | null = null;
+  function get(): ReturnType<typeof DrizzleAdapter> {
+    if (!_adapter) {
+      const { db, schema } = getDb();
+      _adapter = DrizzleAdapter(db, {
+        usersTable: schema.users,
+        accountsTable: schema.accounts,
+        sessionsTable: schema.sessions,
+        verificationTokensTable: schema.verificationTokens,
+      });
+    }
+    return _adapter;
+  }
+  // Return a proxy that forwards every property access to the real adapter
+  return new Proxy({} as ReturnType<typeof DrizzleAdapter>, {
+    get(_target, prop, receiver) {
+      const real = get();
+      const val = Reflect.get(real, prop, receiver);
+      return typeof val === "function" ? val.bind(real) : val;
+    },
+  });
+}
+
 // @ts-ignore NextAuth v5 type portability
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  ...(process.env.DOCKER_BUILD ? {} : {
-    adapter: DrizzleAdapter(db, {
-      usersTable: schema.users,
-      accountsTable: schema.accounts,
-      sessionsTable: schema.sessions,
-      verificationTokensTable: schema.verificationTokens,
-    }),
-  }),
+  adapter: createLazyAdapter(),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers,
@@ -84,6 +112,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (!token.role && token.id) {
         try {
+          const { db, schema } = getDb();
           const dbUser = await db.query.users.findFirst({
             where: eq(schema.users.id, token.id as string),
             columns: { role: true },
