@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
-import dynamicImport from "next/dynamic";
 import { auth } from "@/lib/auth";
+import { WorkbenchClient } from "./WorkbenchClient";
 
 export const dynamic = "force-dynamic";
-
-const Workbench = dynamicImport(
-  () => import("@/components/workbench/Workbench").then((m) => m.Workbench),
-  { ssr: false },
-);
 
 export default async function WorkbenchPage({
   params,
@@ -21,5 +16,5 @@ export default async function WorkbenchPage({
 
   const { projectId } = await params;
 
-  return <Workbench projectId={projectId} />;
+  return <WorkbenchClient projectId={projectId} />;
 }

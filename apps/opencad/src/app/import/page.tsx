@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
-import dynamicImport from "next/dynamic";
 import { auth } from "@/lib/auth";
+import { ImportClient } from "./ImportClient";
 
 export const dynamic = "force-dynamic";
-
-const ImportDialogStandalone = dynamicImport(
-  () => import("./ImportDialogStandalone").then((m) => m.ImportDialogStandalone),
-  { ssr: false },
-);
 
 export default async function ImportPage() {
   const session = await auth();
@@ -25,7 +20,7 @@ export default async function ImportPage() {
         </p>
       </header>
       <div className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900/50 p-6">
-        <ImportDialogStandalone />
+        <ImportClient />
       </div>
     </main>
   );
