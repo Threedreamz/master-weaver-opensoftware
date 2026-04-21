@@ -7,7 +7,13 @@ const schema = { ...sharedSchema, ...opencadSchema };
 
 const dbPath = (process.env.DATABASE_URL || "./data/opencad.db").replace(/^file:/, "");
 
-const sqlite = new Database(dbPath);
+// Next.js 16 page-data collection spawns ~47 parallel workers that each import
+// route modules and transitively this file. Opening with no timeout made them
+// race on the `journal_mode = WAL` pragma (a write that briefly takes an
+// exclusive lock) → SqliteError: database is locked mid-build. The 10s busy
+// timeout makes subsequent workers wait instead of erroring.
+const sqlite = new Database(dbPath, { timeout: 10_000 });
+sqlite.pragma("busy_timeout = 10000");
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 
