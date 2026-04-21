@@ -40,23 +40,12 @@ export async function register() {
         : resolve(process.cwd(), "drizzle/migrations");
     console.log(`[opencad:boot] running migrations from ${migrationsFolder}`);
 
-    try {
-      migrate(db as never, { migrationsFolder });
-      console.log(`[opencad:boot] migrations complete`);
-    } catch (migErr) {
-      const cause = (migErr as { cause?: { code?: string; message?: string } })?.cause;
-      const causeMsg = cause?.message ?? "";
-      const isAlreadyExists =
-        cause?.code === "SQLITE_ERROR" &&
-        (causeMsg.includes("already exists") || causeMsg.includes("duplicate column"));
-      if (isAlreadyExists) {
-        console.warn(
-          `[opencad:boot] migration idempotency skip — schema already present on volume (${causeMsg.split("\n")[0]})`,
-        );
-      } else {
-        throw migErr;
-      }
-    }
+    // Drizzle tracks applied migrations in __drizzle_migrations and skips
+    // anything already journaled. If a CREATE TABLE / column actually fails,
+    // that's a real inconsistency — let it surface instead of swallowing it
+    // as "already applied" (which silently leaves later migrations unrun).
+    migrate(db as never, { migrationsFolder });
+    console.log(`[opencad:boot] migrations complete`);
   } catch (err) {
     console.error(`[opencad:boot] FATAL — db init failed:`, err);
     throw err;

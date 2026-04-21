@@ -691,7 +691,7 @@ export async function evaluateProject(
         if (!r) throw new Error(`missing parent solid ${pid}`);
         parentSolids.push(r);
       }
-      const { solid } = evaluateFeature(feature, params, parentSolids);
+      const { solid } = await evaluateFeature(feature, params, parentSolids);
       results.set(feature.id, solid);
     } catch {
       poisoned.add(feature.id);
