@@ -12,7 +12,11 @@ const dbPath = (process.env.DATABASE_URL || "./data/opensimulation.db").replace(
 const dbDir = dirname(dbPath);
 if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
 
-const sqlite = new Database(dbPath);
+// Next.js 16 page-data collection spawns ~47 parallel workers that race on the
+// initial `journal_mode = WAL` pragma without a busy timeout → SqliteError:
+// database is locked mid-build. 10s busy_timeout makes them wait instead.
+const sqlite = new Database(dbPath, { timeout: 10_000 });
+sqlite.pragma("busy_timeout = 10000");
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 
