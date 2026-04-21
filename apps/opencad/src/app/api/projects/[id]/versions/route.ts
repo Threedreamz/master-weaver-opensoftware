@@ -31,6 +31,7 @@ function toSummary(v: typeof schema.opencadProjectVersions.$inferSelect, userId:
   return {
     id: v.id,
     projectId: v.projectId,
+    version: v.version,
     label: v.label ?? `v${v.version}`,
     createdAt: new Date(v.createdAt).toISOString(),
     createdBy: userId,

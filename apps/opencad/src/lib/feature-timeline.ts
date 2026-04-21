@@ -141,6 +141,90 @@ function coerceProfile(raw: unknown): Point2[] {
   return out;
 }
 
+/**
+ * Convert a sketch's entitiesJson array into a planar Point2[] profile suitable
+ * for `extrudeProfile` / `revolveProfile`. Sketches are stored as a SketchEntity
+ * discriminated union (see api-contracts.ts) — points carry (x,y); circles expand
+ * into a 32-sample polyline; lines/arcs are resolved via their referenced points.
+ *
+ * When a sketch is referenced as an extrude/revolve parent, the feature's params
+ * may or may not already contain a `profile` — if absent we fall back to what
+ * the sketch itself yields. Closed-loop reconstruction from constraint graphs
+ * is out of scope here; we just want a best-effort polygon for the common
+ * "rectangle of 4 point entities" or "single circle" cases that ship today.
+ */
+function sketchToProfile(entities: ReadonlyArray<Record<string, unknown>>): Point2[] {
+  if (!Array.isArray(entities) || entities.length === 0) return [];
+
+  // Index all point entities by id — lines/arcs reference them by string id.
+  const points = new Map<string, Point2>();
+  for (const e of entities) {
+    if (!e || typeof e !== "object") continue;
+    const kind = (e as { kind?: unknown }).kind;
+    const id = (e as { id?: unknown }).id;
+    const x = (e as { x?: unknown }).x;
+    const y = (e as { y?: unknown }).y;
+    if (
+      kind === "point" &&
+      typeof id === "string" &&
+      typeof x === "number" &&
+      typeof y === "number"
+    ) {
+      points.set(id, { x, y });
+    }
+  }
+
+  // Prefer a single circle sampled as a closed polygon when no lines are present.
+  const circle = entities.find(
+    (e) => e && typeof e === "object" && (e as { kind?: unknown }).kind === "circle",
+  ) as { center?: unknown; radius?: unknown } | undefined;
+  if (circle && typeof circle.radius === "number" && typeof circle.center === "string") {
+    const c = points.get(circle.center) ?? { x: 0, y: 0 };
+    const r = circle.radius;
+    const segments = 32;
+    const out: Point2[] = [];
+    for (let i = 0; i < segments; i++) {
+      const t = (i * 2 * Math.PI) / segments;
+      out.push({ x: c.x + r * Math.cos(t), y: c.y + r * Math.sin(t) });
+    }
+    return out;
+  }
+
+  // Walk line entities in insertion order, emitting each endpoint once. This
+  // handles the common rectangle case (4 lines, 4 shared points) and open
+  // polylines. Duplicates are suppressed so the output is a clean ring.
+  const seen = new Set<string>();
+  const ring: Point2[] = [];
+  for (const e of entities) {
+    if (!e || typeof e !== "object") continue;
+    const kind = (e as { kind?: unknown }).kind;
+    if (kind !== "line") continue;
+    const p0 = (e as { p0?: unknown }).p0;
+    const p1 = (e as { p1?: unknown }).p1;
+    for (const pid of [p0, p1]) {
+      if (typeof pid !== "string" || seen.has(pid)) continue;
+      const pt = points.get(pid);
+      if (pt) {
+        ring.push(pt);
+        seen.add(pid);
+      }
+    }
+  }
+  if (ring.length >= 3) return ring;
+
+  // Last-resort fallback: return all points in declaration order.
+  const all: Point2[] = [];
+  for (const e of entities) {
+    if (!e || typeof e !== "object") continue;
+    const kind = (e as { kind?: unknown }).kind;
+    if (kind !== "point") continue;
+    const x = (e as { x?: unknown }).x;
+    const y = (e as { y?: unknown }).y;
+    if (typeof x === "number" && typeof y === "number") all.push({ x, y });
+  }
+  return all;
+}
+
 /* ---------------------------------------------------------------- kernel op */
 
 /**
@@ -486,6 +570,21 @@ export async function evaluateTree(
     .where(eq(schema.opencadFeatures.projectId, projectId))
     .orderBy(asc(schema.opencadFeatures.order));
 
+  // 1b. Load all sketches for this project. Sketches aren't features — they
+  // don't appear in the DAG — but `extrude`/`revolve` features can reference
+  // a sketch as a parent via parentIds. Without this lookup, the parent
+  // resolution below would throw "missing parent geometry" because `results`
+  // only contains evaluated feature outputs. See opencad bug #9.
+  const sketchRows = await db
+    .select()
+    .from(schema.opencadSketches)
+    .where(eq(schema.opencadSketches.projectId, projectId));
+  const sketchById = new Map<string, Point2[]>();
+  for (const s of sketchRows) {
+    const ents = Array.isArray(s.entitiesJson) ? s.entitiesJson : [];
+    sketchById.set(s.id, sketchToProfile(ents as Array<Record<string, unknown>>));
+  }
+
   if (allFeatures.length === 0) {
     return {
       projectId,
@@ -549,6 +648,24 @@ export async function evaluateTree(
       (feature.paramsJson ?? {}) as Record<string, unknown>,
       opts.parameterOverrides,
     );
+
+    // Sketch-aware parent injection (fix for opencad bug #9):
+    // A feature's raw parentIds may reference a sketch rather than another
+    // feature — `extrude`/`revolve` created from a sketch do this. Sketches
+    // aren't part of the feature DAG, so `parents` (filtered by buildDAG)
+    // drops them silently. Inject the sketch's profile here so the kernel
+    // has geometry to work from.
+    const rawParentIds: string[] = Array.isArray(feature.parentIds) ? feature.parentIds : [];
+    if (!("profile" in effectiveParams) || !Array.isArray(effectiveParams.profile)) {
+      for (const pid of rawParentIds) {
+        const sketchProfile = sketchById.get(pid);
+        if (sketchProfile && sketchProfile.length > 0) {
+          effectiveParams.profile = sketchProfile;
+          break;
+        }
+      }
+    }
+
     const parentHashes = parents
       .map((pid) => results.get(pid)?.contentHash ?? "")
       .sort();
@@ -672,6 +789,18 @@ export async function evaluateProject(
     return new THREE.BufferGeometry();
   }
 
+  // Load sketches so that extrude/revolve features with sketch parentIds can
+  // pull their profiles (mirrors evaluateTree). See opencad bug #9.
+  const sketchRows = await db
+    .select()
+    .from(schema.opencadSketches)
+    .where(eq(schema.opencadSketches.projectId, projectId));
+  const sketchById = new Map<string, Point2[]>();
+  for (const s of sketchRows) {
+    const ents = Array.isArray(s.entitiesJson) ? s.entitiesJson : [];
+    sketchById.set(s.id, sketchToProfile(ents as Array<Record<string, unknown>>));
+  }
+
   const sorted = topoSort(features);
   const dag: DAG = buildDAG(sorted);
   const results = new Map<string, SolidResult>();
@@ -683,7 +812,19 @@ export async function evaluateProject(
       poisoned.add(feature.id);
       continue;
     }
-    const params = (feature.paramsJson ?? {}) as Record<string, unknown>;
+    const params = { ...(feature.paramsJson ?? {}) } as Record<string, unknown>;
+
+    // Sketch-parent profile injection (bug #9).
+    const rawParentIds: string[] = Array.isArray(feature.parentIds) ? feature.parentIds : [];
+    if (!("profile" in params) || !Array.isArray(params.profile)) {
+      for (const pid of rawParentIds) {
+        const sketchProfile = sketchById.get(pid);
+        if (sketchProfile && sketchProfile.length > 0) {
+          params.profile = sketchProfile;
+          break;
+        }
+      }
+    }
     try {
       const parentSolids: SolidResult[] = [];
       for (const pid of parents) {

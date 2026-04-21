@@ -200,20 +200,77 @@ export function revolveProfile(
 
 /* ---------------------------------------------------------------- boolean */
 
+/**
+ * Normalise a geometry for three-bvh-csg consumption.
+ *
+ * three-bvh-csg's Evaluator requires `position`, `normal`, AND `uv` attributes
+ * on both input geometries (see `Evaluator.attributes = ['position','uv','normal']`).
+ * It reads `a.geometry.attributes[key].array.constructor` during
+ * `prepareAttributesData`, so a missing attribute throws the opaque
+ * `Cannot read properties of undefined (reading 'array')` error on the first
+ * boolean call.
+ *
+ * Fresh primitives (BoxGeometry, etc.) have uv; but cached geometries
+ * round-tripped through `serializeGeometry`/`deserializeGeometry` only carry
+ * position+normal+index, so a second evaluate() pass whose booleans read
+ * parents from the cache crashes. Ditto CSG outputs that we later clone
+ * without their uvs.
+ *
+ * Also accepts an already-wrapped `SolidResult` so callers that forget to
+ * unwrap `.mesh` don't crash on `.attributes` access.
+ */
+function normalizeForCsg(
+  g: THREE.BufferGeometry | SolidResult
+): THREE.BufferGeometry {
+  // Accept both raw BufferGeometry and SolidResult wrappers.
+  const geom = (g as SolidResult).mesh instanceof THREE.BufferGeometry
+    ? (g as SolidResult).mesh
+    : (g as THREE.BufferGeometry);
+
+  if (!(geom instanceof THREE.BufferGeometry)) {
+    throw new Error("booleanOp: input is not a BufferGeometry or SolidResult");
+  }
+
+  const out = geom.clone();
+
+  // Ensure position attribute exists (sanity — should always be present).
+  const pos = out.getAttribute("position");
+  if (!pos) {
+    throw new Error("booleanOp: input geometry has no position attribute");
+  }
+
+  // Ensure normal attribute exists.
+  if (!out.getAttribute("normal")) {
+    out.computeVertexNormals();
+  }
+
+  // Ensure uv attribute exists — synthesise zero-valued uvs if missing.
+  // three-bvh-csg requires uv to be present even if its values are unused
+  // downstream (CAD callers don't render textured materials).
+  if (!out.getAttribute("uv")) {
+    const uvs = new Float32Array(pos.count * 2);
+    out.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  }
+
+  return out;
+}
+
 /** CSG boolean — requires three-bvh-csg. Falls back to `a` if lib missing. */
 export function booleanOp(
-  a: THREE.BufferGeometry,
-  b: THREE.BufferGeometry,
+  a: THREE.BufferGeometry | SolidResult,
+  b: THREE.BufferGeometry | SolidResult,
   op: BooleanOpKind
 ): SolidResult {
   const lib = loadCsg();
+  const aGeom = normalizeForCsg(a);
+  const bGeom = normalizeForCsg(b);
   if (!lib) {
     // eslint-disable-next-line no-console
     console.warn(`[opencad:kernel] booleanOp(${op}) skipped — three-bvh-csg missing`);
-    return toSolid(a.clone());
+    return toSolid(aGeom);
   }
-  const brushA = new lib.Brush(a) as unknown as { updateMatrixWorld: () => void };
-  const brushB = new lib.Brush(b) as unknown as { updateMatrixWorld: () => void };
+  const brushA = new lib.Brush(aGeom) as unknown as { updateMatrixWorld: () => void };
+  const brushB = new lib.Brush(bGeom) as unknown as { updateMatrixWorld: () => void };
   brushA.updateMatrixWorld();
   brushB.updateMatrixWorld();
   const opCode =
