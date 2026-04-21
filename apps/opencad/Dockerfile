@@ -34,9 +34,13 @@ COPY --from=pruner /app/out/full/ .
 ENV DOCKER_BUILD=true
 ENV NODE_ENV=production
 
-# Generate SQL migration files (for runtime migration via instrumentation.ts)
+# Migrations are pre-generated and committed under apps/opencad/drizzle/.
+# DO NOT run `drizzle-kit generate` here — it emits new migrations whenever
+# the committed snapshot drifts from schema.ts (e.g. hand-edited migrations
+# without a matching *_snapshot.json), which causes duplicate-column /
+# no-such-table errors at runtime. Trust the committed migrations folder.
 WORKDIR /app/apps/opencad
-RUN mkdir -p data drizzle && npx drizzle-kit generate
+RUN mkdir -p data drizzle
 
 # Build the Next.js app (standalone output)
 WORKDIR /app
