@@ -17,6 +17,8 @@
  *   - kernel.exportSTL(geometry, binary) → Uint8Array
  */
 import * as THREE from "three";
+import { evaluateProject } from "../feature-timeline";
+import { exportSTL as kernelExportSTL } from "../cad-kernel";
 
 type Tessellation = "coarse" | "normal" | "fine";
 
@@ -35,31 +37,6 @@ export interface ExportSTLResult {
   filename: string;
   triangleCount: number;
   sizeBytes: number;
-}
-
-/**
- * Lazy-load the CAD kernel. The sibling task is writing it; we import by path
- * so our module compiles even if the kernel isn't ready yet at `tsc` time —
- * any type narrowing happens at call-time.
- */
-async function loadKernel(): Promise<{
-  evaluateProject(
-    projectId: string,
-    opts: { tessellation: Tessellation; versionId?: string },
-  ): Promise<THREE.BufferGeometry>;
-  exportSTL(geometry: THREE.BufferGeometry, binary: boolean): Uint8Array;
-}> {
-  // evaluateProject lives in feature-timeline; exportSTL stays in cad-kernel.
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const [kmod, tmod]: [any, any] = await Promise.all([
-    import("../cad-kernel"),
-    import("../feature-timeline"),
-  ]);
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-  return {
-    evaluateProject: tmod.evaluateProject ?? tmod.default?.evaluateProject,
-    exportSTL: kmod.exportSTL ?? kmod.default?.exportSTL,
-  };
 }
 
 function sanitizeFilename(name: string): string {
@@ -86,14 +63,9 @@ export async function exportProjectSTL(
 ): Promise<ExportSTLResult> {
   const { binary = true, tessellation, versionId } = opts;
 
-  const kernel = await loadKernel();
-  if (!kernel.evaluateProject || !kernel.exportSTL) {
-    throw new Error("cad-kernel not available — evaluateProject/exportSTL missing");
-  }
-
-  const geometry = await kernel.evaluateProject(projectId, { tessellation, versionId });
+  const geometry = await evaluateProject(projectId, { tessellation, versionId });
   const triangleCount = countTriangles(geometry);
-  const bytes = kernel.exportSTL(geometry, binary);
+  const bytes = kernelExportSTL(geometry, binary);
   const sizeBytes = bytes.byteLength;
   const filename = sanitizeFilename(`opencad-${projectId}${versionId ? `-${versionId}` : ""}.stl`);
 
@@ -129,13 +101,9 @@ export async function exportProjectSTLBytes(
   opts: ExportSTLOptions,
 ): Promise<{ bytes: Uint8Array; filename: string; triangleCount: number; sizeBytes: number }> {
   const { binary = true, tessellation, versionId } = opts;
-  const kernel = await loadKernel();
-  if (!kernel.evaluateProject || !kernel.exportSTL) {
-    throw new Error("cad-kernel not available — evaluateProject/exportSTL missing");
-  }
-  const geometry = await kernel.evaluateProject(projectId, { tessellation, versionId });
+  const geometry = await evaluateProject(projectId, { tessellation, versionId });
   const triangleCount = countTriangles(geometry);
-  const bytes = kernel.exportSTL(geometry, binary);
+  const bytes = kernelExportSTL(geometry, binary);
   const filename = sanitizeFilename(`opencad-${projectId}${versionId ? `-${versionId}` : ""}.stl`);
   return { bytes, filename, triangleCount, sizeBytes: bytes.byteLength };
 }

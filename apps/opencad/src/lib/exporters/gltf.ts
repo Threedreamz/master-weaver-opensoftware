@@ -13,6 +13,7 @@ import * as THREE from "three";
 // The three package ships these JSM examples under `examples/jsm/*`.
 // The `.js` import path is required in modern node/ESM (next.js bundles it).
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { evaluateProject } from "../feature-timeline";
 
 type Tessellation = "coarse" | "normal" | "fine";
 
@@ -28,19 +29,6 @@ export interface ExportGLTFResult {
   filename: string;
   triangleCount: number;
   sizeBytes: number;
-}
-
-async function loadKernel(): Promise<{
-  evaluateProject(
-    projectId: string,
-    opts: { tessellation: Tessellation; versionId?: string },
-  ): Promise<THREE.BufferGeometry>;
-}> {
-  // evaluateProject lives in feature-timeline (DB-aware); cad-kernel stays
-  // state-free by design. Keep dynamic import so module load is lazy.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod: any = await import("../feature-timeline");
-  return { evaluateProject: mod.evaluateProject ?? mod.default?.evaluateProject };
 }
 
 function sanitizeFilename(name: string): string {
@@ -60,11 +48,7 @@ export async function exportProjectGLTF(
 ): Promise<ExportGLTFResult> {
   const { tessellation, versionId, binary = true } = opts;
 
-  const kernel = await loadKernel();
-  if (!kernel.evaluateProject) {
-    throw new Error("cad-kernel not available — evaluateProject missing");
-  }
-  const geometry = await kernel.evaluateProject(projectId, { tessellation, versionId });
+  const geometry = await evaluateProject(projectId, { tessellation, versionId });
   const triangleCount = countTriangles(geometry);
 
   // GLTFExporter needs a Scene graph. Build the minimum: scene → mesh →
