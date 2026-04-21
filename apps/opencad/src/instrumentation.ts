@@ -13,6 +13,54 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Polyfill browser-only FileReader for three.js GLTFExporter. The exporter
+  // creates a Blob then calls `new FileReader().readAsArrayBuffer(blob)` /
+  // `readAsDataURL(blob)` to unwrap it. Node 22 has Blob global but no
+  // FileReader, so glTF export throws `FileReader is not defined` mid-parse.
+  // Shim it with Blob.arrayBuffer()/Buffer base64 — no extra deps.
+  if (typeof (globalThis as { FileReader?: unknown }).FileReader === "undefined") {
+    class FileReaderShim {
+      onload: ((ev: { target: FileReaderShim }) => void) | null = null;
+      onloadend: ((ev: { target: FileReaderShim }) => void) | null = null;
+      onerror: ((ev: unknown) => void) | null = null;
+      result: ArrayBuffer | string | null = null;
+      readyState = 0;
+      readAsArrayBuffer(blob: Blob) {
+        blob.arrayBuffer().then(
+          (ab) => {
+            this.result = ab;
+            this.readyState = 2;
+            this.onload?.({ target: this });
+            this.onloadend?.({ target: this });
+          },
+          (err) => {
+            this.readyState = 2;
+            this.onerror?.(err);
+            this.onloadend?.({ target: this });
+          },
+        );
+      }
+      readAsDataURL(blob: Blob) {
+        blob.arrayBuffer().then(
+          (ab) => {
+            const b64 = Buffer.from(ab).toString("base64");
+            this.result = `data:${blob.type || "application/octet-stream"};base64,${b64}`;
+            this.readyState = 2;
+            this.onload?.({ target: this });
+            this.onloadend?.({ target: this });
+          },
+          (err) => {
+            this.readyState = 2;
+            this.onerror?.(err);
+            this.onloadend?.({ target: this });
+          },
+        );
+      }
+    }
+    (globalThis as { FileReader?: unknown }).FileReader = FileReaderShim;
+    console.log("[opencad:boot] installed FileReader polyfill for GLTFExporter");
+  }
+
   const { mkdirSync, existsSync } = await import("fs");
   const { dirname, resolve } = await import("path");
   const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");

@@ -15,6 +15,56 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { evaluateProject } from "../feature-timeline";
 
+// Polyfill browser-only FileReader for three.js GLTFExporter on the Node
+// server. The exporter internally calls `new FileReader().readAsArrayBuffer(blob)`
+// and `.readAsDataURL(blob)` to unwrap its final Blob. Node 22 has Blob global
+// but no FileReader, so without this shim every call to this route throws
+// `FileReader is not defined`. We install the shim as a module side-effect so
+// any worker/route isolate that imports this file also gets it — defence in
+// depth against Next.js bundling the exporter into a runtime that didn't see
+// the instrumentation-level polyfill.
+if (typeof (globalThis as { FileReader?: unknown }).FileReader === "undefined") {
+  class FileReaderShim {
+    onload: ((ev: { target: FileReaderShim }) => void) | null = null;
+    onloadend: ((ev: { target: FileReaderShim }) => void) | null = null;
+    onerror: ((ev: unknown) => void) | null = null;
+    result: ArrayBuffer | string | null = null;
+    readyState = 0;
+    readAsArrayBuffer(blob: Blob) {
+      blob.arrayBuffer().then(
+        (ab) => {
+          this.result = ab;
+          this.readyState = 2;
+          this.onload?.({ target: this });
+          this.onloadend?.({ target: this });
+        },
+        (err) => {
+          this.readyState = 2;
+          this.onerror?.(err);
+          this.onloadend?.({ target: this });
+        },
+      );
+    }
+    readAsDataURL(blob: Blob) {
+      blob.arrayBuffer().then(
+        (ab) => {
+          const b64 = Buffer.from(ab).toString("base64");
+          this.result = `data:${blob.type || "application/octet-stream"};base64,${b64}`;
+          this.readyState = 2;
+          this.onload?.({ target: this });
+          this.onloadend?.({ target: this });
+        },
+        (err) => {
+          this.readyState = 2;
+          this.onerror?.(err);
+          this.onloadend?.({ target: this });
+        },
+      );
+    }
+  }
+  (globalThis as { FileReader?: unknown }).FileReader = FileReaderShim;
+}
+
 type Tessellation = "coarse" | "normal" | "fine";
 
 export interface ExportGLTFOptions {
@@ -47,6 +97,18 @@ export async function exportProjectGLTF(
   opts: ExportGLTFOptions,
 ): Promise<ExportGLTFResult> {
   const { tessellation, versionId, binary = true } = opts;
+
+  // Diagnostic: confirm FileReader shim is actually present in this isolate
+  // at the moment GLTFExporter is about to run. Remove once stable.
+  // eslint-disable-next-line no-console
+  console.log(
+    `[opencad:gltf] pre-export typeof globalThis.FileReader =`,
+    typeof (globalThis as { FileReader?: unknown }).FileReader,
+    `typeof FileReader (lex) =`,
+    typeof (globalThis as { FileReader?: unknown }).FileReader !== "undefined"
+      ? "present"
+      : "MISSING",
+  );
 
   const geometry = await evaluateProject(projectId, { tessellation, versionId });
   const triangleCount = countTriangles(geometry);

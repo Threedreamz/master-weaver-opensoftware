@@ -300,7 +300,18 @@ export function tessellate(
  */
 export function exportSTL(geom: THREE.BufferGeometry, binary = true): Uint8Array {
   const pos = geom.getAttribute("position");
-  if (!pos) return new Uint8Array(0);
+  // Empty-project guard: if the feature tree has no geometry yet, emit a
+  // valid-but-empty STL so the browser-side STLLoader doesn't throw
+  // "Offset is outside the bounds of the DataView" on a zero-byte response.
+  // Binary STL minimum = 80-byte header + uint32 triangle count = 84 bytes.
+  if (!pos || pos.count === 0) {
+    if (binary) {
+      const buf = new ArrayBuffer(84);
+      new DataView(buf).setUint32(80, 0, true);
+      return new Uint8Array(buf);
+    }
+    return new TextEncoder().encode("solid opencad\nendsolid opencad\n");
+  }
   const idx = geom.getIndex();
   const triCount = idx ? idx.count / 3 : pos.count / 3;
   const a = new THREE.Vector3();
