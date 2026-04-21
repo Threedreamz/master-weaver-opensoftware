@@ -43,7 +43,27 @@ export const opencadSketches = sqliteTable("opencad_sketches", {
 export const opencadFeatures = sqliteTable("opencad_features", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   projectId: text("project_id").notNull().references(() => opencadProjects.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["extrude", "revolve", "cut", "fillet", "chamfer", "boolean"] }).notNull(),
+  kind: text("kind", {
+    enum: [
+      // primitives
+      "box", "cylinder", "sphere", "cone", "torus", "pyramid",
+      // solid ops
+      "extrude", "revolve", "sweep", "loft", "cut",
+      "shell", "draft", "hole", "thread",
+      // modifiers
+      "fillet", "chamfer", "transform",
+      // patterns
+      "mirror", "pattern-linear", "pattern-circular",
+      // grouping
+      "group",
+      // booleans
+      "boolean", "boolean-union", "boolean-subtract", "boolean-intersect",
+      // sketch feature (wraps a sketch in the tree)
+      "sketch",
+      // imports
+      "import",
+    ],
+  }).notNull(),
   paramsJson: text("params_json", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
   parentIds: text("parent_ids", { mode: "json" }).$type<string[]>().notNull(),
   outputGeometryHash: text("output_geometry_hash"),
@@ -67,12 +87,30 @@ export const opencadImportedBodies = sqliteTable("opencad_imported_bodies", {
 // ==================== M2: ASSEMBLIES ====================
 
 export const opencadAssemblies = sqliteTable("opencad_assemblies", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id").primaryKey(),
   projectId: text("project_id").notNull().references(() => opencadProjects.id, { onDelete: "cascade" }),
-  rootTreeJson: text("root_tree_json", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
+  name: text("name").notNull(),
+  treeJson: text("tree_json").notNull(),          // AssemblyTree {parts, instances}
+  solvedPosesJson: text("solved_poses_json"),     // last-known good solve result
+  motionStudyJson: text("motion_study_json"),     // optional MotionStudy
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => [index("opencad_asm_project_idx").on(t.projectId)]);
+
+export const opencadDrawings = sqliteTable("opencad_drawings", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull().references(() => opencadProjects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  sheetWidthMm: real("sheet_width_mm").notNull().default(297),  // A4 landscape default
+  sheetHeightMm: real("sheet_height_mm").notNull().default(210),
+  sheetTitle: text("sheet_title").notNull(),
+  sheetAuthor: text("sheet_author"),
+  sheetRevision: text("sheet_revision"),
+  viewsJson: text("views_json").notNull(),        // ProjectionResult[] + layout (position/scale)
+  dimensionsJson: text("dimensions_json").notNull(), // Dimension[] serialized
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [index("opencad_drawings_project_idx").on(t.projectId)]);
 
 export const opencadAssemblyParts = sqliteTable("opencad_assembly_parts", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -142,6 +180,11 @@ export const opencadProjectsRelations = relations(opencadProjects, ({ many }) =>
   importedBodies: many(opencadImportedBodies),
   assemblies: many(opencadAssemblies),
   operations: many(opencadOperations),
+  drawings: many(opencadDrawings),
+}));
+
+export const opencadDrawingsRelations = relations(opencadDrawings, ({ one }) => ({
+  project: one(opencadProjects, { fields: [opencadDrawings.projectId], references: [opencadProjects.id] }),
 }));
 
 export const opencadAssembliesRelations = relations(opencadAssemblies, ({ one, many }) => ({
@@ -163,3 +206,7 @@ export type OpencadFeature = typeof opencadFeatures.$inferSelect;
 export type OpencadFeatureKind = OpencadFeature["kind"];
 export type OpencadOperation = typeof opencadOperations.$inferSelect;
 export type OpencadOperationKind = OpencadOperation["kind"];
+export type OpencadDrawing = typeof opencadDrawings.$inferSelect;
+export type OpencadDrawingInsert = typeof opencadDrawings.$inferInsert;
+export type OpencadAssembly = typeof opencadAssemblies.$inferSelect;
+export type OpencadAssemblyInsert = typeof opencadAssemblies.$inferInsert;

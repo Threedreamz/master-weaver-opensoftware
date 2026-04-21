@@ -36,8 +36,10 @@ async function loadKernel(): Promise<{
     opts: { tessellation: Tessellation; versionId?: string },
   ): Promise<THREE.BufferGeometry>;
 }> {
+  // evaluateProject lives in feature-timeline (DB-aware); cad-kernel stays
+  // state-free by design. Keep dynamic import so module load is lazy.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod: any = await import("../cad-kernel");
+  const mod: any = await import("../feature-timeline");
   return { evaluateProject: mod.evaluateProject ?? mod.default?.evaluateProject };
 }
 
@@ -70,6 +72,16 @@ export async function exportProjectGLTF(
   // data interchange payload, not a rendered scene.
   const scene = new THREE.Scene();
   const material = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8, metalness: 0.0 });
+  // Empty-project guard: GLTFExporter throws on a geometry with no position
+  // attribute. Give it a single degenerate point so it emits a valid GLB with
+  // an empty-scene feel rather than failing the whole export.
+  const posAttr = geometry.getAttribute("position");
+  if (!posAttr || posAttr.count === 0) {
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3),
+    );
+  }
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
 

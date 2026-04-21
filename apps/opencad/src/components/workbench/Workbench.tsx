@@ -7,6 +7,7 @@ import { Viewport, type ViewportFeature } from "@/components/workbench/Viewport"
 import { SketchOverlay, type SketchEntity as OverlaySketchEntity, type SketchConstraint as OverlaySketchConstraint } from "@/components/workbench/SketchOverlay";
 import { PropertiesPanel, type PropertiesFeature } from "@/components/workbench/PropertiesPanel";
 import { Toolbar, type ToolbarAction } from "@/components/workbench/Toolbar";
+import { TimelineScrubber } from "@/components/workbench/TimelineScrubber";
 
 interface WorkbenchProps {
   projectId: string;
@@ -105,6 +106,9 @@ export function Workbench({ projectId }: WorkbenchProps) {
           <PropertiesPanel feature={propertiesFeature} />
         </aside>
       </div>
+
+      {/* BOTTOM: Feature timeline scrubber */}
+      <TimelineScrubber />
     </div>
   );
 }

@@ -20,6 +20,7 @@ const MANIFEST_SERVICES = [
   { slug: "openmailer",      port: 4161 },
   { slug: "opensem",         port: 4164 },
   { slug: "openlawyer",      port: 4165 },
+  { slug: "openpostbox",     port: 4167 },
   { slug: "openportal-api",  port: 4179 },
   { slug: "openportal",      port: 4178 },
   { slug: "open3d-api",      port: 4173 },

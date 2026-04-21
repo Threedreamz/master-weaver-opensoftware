@@ -49,11 +49,16 @@ async function loadKernel(): Promise<{
   ): Promise<THREE.BufferGeometry>;
   exportSTL(geometry: THREE.BufferGeometry, binary: boolean): Uint8Array;
 }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod: any = await import("../cad-kernel");
+  // evaluateProject lives in feature-timeline; exportSTL stays in cad-kernel.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const [kmod, tmod]: [any, any] = await Promise.all([
+    import("../cad-kernel"),
+    import("../feature-timeline"),
+  ]);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   return {
-    evaluateProject: mod.evaluateProject ?? mod.default?.evaluateProject,
-    exportSTL: mod.exportSTL ?? mod.default?.exportSTL,
+    evaluateProject: tmod.evaluateProject ?? tmod.default?.evaluateProject,
+    exportSTL: kmod.exportSTL ?? kmod.default?.exportSTL,
   };
 }
 

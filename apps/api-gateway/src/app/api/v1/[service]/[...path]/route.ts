@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey, unauthorizedResponse } from "@/middleware/auth";
 import { stripPII, getPrivacyLevel } from "@/middleware/pii-filter";
+import { checkEntitlement, entitlementDeniedResponse } from "@/middleware/entitlement";
 
 /**
  * Service-zu-Port-Zuordnung fuer alle OpenSoftware-Apps
@@ -18,6 +19,7 @@ const SERVICE_MAP: Record<string, { port: number; name: string }> = {
   lawyer: { port: 4164, name: "OpenLawyer" },
   seo: { port: 4166, name: "OpenSEO" },
   desktop: { port: 4176, name: "OpenDesktop" },
+  postbox: { port: 4167, name: "OpenPostbox" },
 };
 
 /**
@@ -57,6 +59,13 @@ async function proxyRequest(
     return unauthorizedResponse(auth.error);
   }
 
+  // 1b. Enforce paywall entitlement (reads X-User-Plan from the hub).
+  // Services not listed in SERVICE_ENTITLEMENTS pass through unchanged.
+  const entitlement = checkEntitlement(service, request);
+  if (!entitlement.ok) {
+    return entitlementDeniedResponse(entitlement);
+  }
+
   // 2. Resolve target service
   const baseUrl = getServiceUrl(service);
   if (!baseUrl) {
@@ -80,6 +89,18 @@ async function proxyRequest(
     // Pass through the authenticated app ID
     headers.set("X-Gateway-App-Id", auth.appId ?? "unknown");
     headers.set("X-Gateway-Request-Id", crypto.randomUUID());
+
+    // Forward the shared api key + paywall/quota context to the downstream
+    // service. Services like openpostbox-api scope queries by X-Tenant-Id
+    // and enforce per-month quotas from X-Plan-Scan-Pages.
+    const serviceKey = process.env.OPENSOFTWARE_API_KEY;
+    if (serviceKey) headers.set("X-API-Key", serviceKey);
+    const tenantId = request.headers.get("x-tenant-id");
+    if (tenantId) headers.set("X-Tenant-Id", tenantId);
+    const userPlan = request.headers.get("x-user-plan");
+    if (userPlan) headers.set("X-User-Plan", userPlan);
+    const planScanPages = request.headers.get("x-plan-scan-pages");
+    if (planScanPages) headers.set("X-Plan-Scan-Pages", planScanPages);
 
     const fetchOptions: RequestInit = {
       method: request.method,

@@ -152,6 +152,25 @@ export const SketchEntity = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("line"), id: z.string(), p0: z.string(), p1: z.string() }),
   z.object({ kind: z.literal("arc"), id: z.string(), center: z.string(), start: z.string(), end: z.string() }),
   z.object({ kind: z.literal("circle"), id: z.string(), center: z.string(), radius: z.number().positive() }),
+  z.object({
+    kind: z.literal("ellipse"),
+    id: z.string(),
+    center: z.string(),
+    semiMajor: z.number().positive(),
+    semiMinor: z.number().positive(),
+    rotationDeg: z.number().default(0),
+  }),
+  z.object({
+    kind: z.literal("bezier-cubic"),
+    id: z.string(),
+    p0: z.string(), p1: z.string(), p2: z.string(), p3: z.string(),
+  }),
+  z.object({
+    kind: z.literal("bspline"),
+    id: z.string(),
+    degree: z.number().int().min(1).max(7).default(3),
+    controlPoints: z.array(z.string()).min(2),
+  }),
 ]);
 export const SketchConstraint = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("coincident"), a: z.string(), b: z.string() }),

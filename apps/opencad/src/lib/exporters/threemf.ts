@@ -40,8 +40,9 @@ async function loadKernel(): Promise<{
     opts: { tessellation: Tessellation; versionId?: string },
   ): Promise<THREE.BufferGeometry>;
 }> {
+  // evaluateProject lives in feature-timeline (DB-aware evaluator).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod: any = await import("../cad-kernel");
+  const mod: any = await import("../feature-timeline");
   return { evaluateProject: mod.evaluateProject ?? mod.default?.evaluateProject };
 }
 
@@ -67,7 +68,24 @@ function xmlEscape(s: string): string {
  */
 function geometryTo3MFXml(geometry: THREE.BufferGeometry, objectName: string): { xml: string; triangleCount: number } {
   const posAttr = geometry.getAttribute("position");
-  if (!posAttr) throw new Error("3mf export: geometry has no position attribute");
+  // Empty-project guard: emit a zero-mesh 3MF skeleton rather than throwing.
+  // The resulting archive is still spec-valid (resources with a single empty
+  // object is permitted) so the export endpoint returns 200 + a valid file.
+  if (!posAttr || posAttr.count === 0) {
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n` +
+      `  <metadata name="Title">${xmlEscape(objectName)}</metadata>\n` +
+      `  <metadata name="Application">opencad</metadata>\n` +
+      `  <resources>\n` +
+      `    <object id="1" type="model" name="${xmlEscape(objectName)}">\n` +
+      `      <mesh><vertices/><triangles/></mesh>\n` +
+      `    </object>\n` +
+      `  </resources>\n` +
+      `  <build><item objectid="1"/></build>\n` +
+      `</model>\n`;
+    return { xml, triangleCount: 0 };
+  }
   const indexAttr = geometry.getIndex();
 
   // Build vertex list — if indexed, use the attribute directly; if not, every

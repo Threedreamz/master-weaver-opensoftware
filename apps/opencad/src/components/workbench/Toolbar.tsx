@@ -19,17 +19,69 @@ import {
   Download,
   Send,
   Save,
+  Triangle,
+  Cone,
+  Circle,
+  Square,
+  Hexagon,
+  MoveHorizontal,
+  RotateCcw,
+  Maximize2,
+  FlipHorizontal,
+  Grid3x3,
+  CircleDot,
+  Waves,
+  Layers,
+  Target,
+  Wrench,
+  Pickaxe,
+  GitCommitHorizontal,
+  GitBranch,
+  FileStack,
   type LucideIcon,
 } from "lucide-react";
 
 export type ToolbarAction =
   | "new-sketch"
+  // primitives
+  | "box"
+  | "cylinder"
+  | "sphere"
+  | "cone"
+  | "torus"
+  | "pyramid"
+  // sketch entities
+  | "sketch-rectangle"
+  | "sketch-polygon"
+  | "sketch-ellipse"
+  | "sketch-slot"
+  | "sketch-offset"
+  | "sketch-trim"
+  | "sketch-fillet"
+  // solid features
   | "extrude"
   | "revolve"
+  | "sweep"
+  | "loft"
   | "cut"
   | "fillet"
   | "chamfer"
+  | "shell"
+  | "draft"
+  | "hole"
+  | "thread"
+  // patterns + transforms
+  | "mirror"
+  | "pattern-linear"
+  | "pattern-circular"
+  | "transform"
+  | "group"
+  // booleans
   | "boolean"
+  | "boolean-union"
+  | "boolean-subtract"
+  | "boolean-intersect"
+  // io
   | "save"
   | "export"
   | "handoff-slicer";
@@ -47,21 +99,66 @@ interface ButtonSpec {
   id: ToolbarAction;
   label: string;
   icon: LucideIcon;
-  group: "sketch" | "solid" | "modify" | "io";
+  group:
+    | "sketch-entity"
+    | "sketch-tool"
+    | "sketch"
+    | "primitive"
+    | "solid"
+    | "modify"
+    | "pattern"
+    | "transform"
+    | "boolean"
+    | "io";
   requires?: "sketch" | "selection" | null;
 }
 
 const BUTTONS: ButtonSpec[] = [
-  { id: "new-sketch",     label: "New Sketch",  icon: Spline,     group: "sketch" },
-  { id: "extrude",        label: "Extrude",     icon: Box,        group: "solid",  requires: "sketch" },
-  { id: "revolve",        label: "Revolve",     icon: Cylinder,   group: "solid",  requires: "sketch" },
-  { id: "cut",            label: "Cut",         icon: Scissors,   group: "solid",  requires: "sketch" },
-  { id: "fillet",         label: "Fillet",      icon: CircleIcon, group: "modify", requires: "selection" },
-  { id: "chamfer",        label: "Chamfer",     icon: Shapes,     group: "modify", requires: "selection" },
-  { id: "boolean",        label: "Boolean",     icon: Layers3,    group: "modify" },
-  { id: "save",           label: "Save",        icon: Save,       group: "io" },
-  { id: "export",         label: "Export",      icon: Download,   group: "io" },
-  { id: "handoff-slicer", label: "Slicer",      icon: Send,       group: "io" },
+  // Sketch mode
+  { id: "new-sketch",        label: "Sketch",     icon: Spline,            group: "sketch" },
+  // Sketch entities (active when in sketch mode)
+  { id: "sketch-rectangle",  label: "Rectangle",  icon: Square,            group: "sketch-entity", requires: "sketch" },
+  { id: "sketch-polygon",    label: "Polygon",    icon: Hexagon,           group: "sketch-entity", requires: "sketch" },
+  { id: "sketch-ellipse",    label: "Ellipse",    icon: Circle,            group: "sketch-entity", requires: "sketch" },
+  { id: "sketch-slot",       label: "Slot",       icon: GitCommitHorizontal, group: "sketch-entity", requires: "sketch" },
+  // Sketch tools
+  { id: "sketch-offset",     label: "Offset",     icon: Waves,             group: "sketch-tool",   requires: "sketch" },
+  { id: "sketch-trim",       label: "Trim",       icon: Scissors,          group: "sketch-tool",   requires: "sketch" },
+  { id: "sketch-fillet",     label: "Fillet 2D",  icon: CircleIcon,        group: "sketch-tool",   requires: "sketch" },
+  // Primitives
+  { id: "box",               label: "Box",        icon: Box,               group: "primitive" },
+  { id: "cylinder",          label: "Cylinder",   icon: Cylinder,          group: "primitive" },
+  { id: "sphere",            label: "Sphere",     icon: Circle,            group: "primitive" },
+  { id: "cone",              label: "Cone",       icon: Cone,              group: "primitive" },
+  { id: "torus",             label: "Torus",      icon: CircleDot,         group: "primitive" },
+  { id: "pyramid",           label: "Pyramid",    icon: Triangle,          group: "primitive" },
+  // Solid features
+  { id: "extrude",           label: "Extrude",    icon: Box,               group: "solid",  requires: "sketch" },
+  { id: "revolve",           label: "Revolve",    icon: Cylinder,          group: "solid",  requires: "sketch" },
+  { id: "sweep",             label: "Sweep",      icon: GitBranch,         group: "solid",  requires: "sketch" },
+  { id: "loft",              label: "Loft",       icon: Layers,            group: "solid",  requires: "sketch" },
+  { id: "cut",               label: "Cut",        icon: Scissors,          group: "solid",  requires: "sketch" },
+  { id: "hole",              label: "Hole",       icon: Target,            group: "solid",  requires: "selection" },
+  { id: "thread",            label: "Thread",     icon: Wrench,            group: "solid",  requires: "selection" },
+  // Modifiers
+  { id: "fillet",            label: "Fillet",     icon: CircleIcon,        group: "modify", requires: "selection" },
+  { id: "chamfer",           label: "Chamfer",    icon: Shapes,            group: "modify", requires: "selection" },
+  { id: "shell",             label: "Shell",      icon: Pickaxe,           group: "modify", requires: "selection" },
+  { id: "draft",             label: "Draft",      icon: Shapes,            group: "modify", requires: "selection" },
+  // Patterns + transforms
+  { id: "mirror",            label: "Mirror",     icon: FlipHorizontal,    group: "pattern", requires: "selection" },
+  { id: "pattern-linear",    label: "Pattern L",  icon: Grid3x3,           group: "pattern", requires: "selection" },
+  { id: "pattern-circular",  label: "Pattern C",  icon: RotateCcw,         group: "pattern", requires: "selection" },
+  { id: "transform",         label: "Transform",  icon: MoveHorizontal,    group: "transform", requires: "selection" },
+  { id: "group",             label: "Group",      icon: FileStack,         group: "transform" },
+  // Booleans
+  { id: "boolean-union",     label: "Union",      icon: Layers3,           group: "boolean" },
+  { id: "boolean-subtract",  label: "Subtract",   icon: Layers3,           group: "boolean" },
+  { id: "boolean-intersect", label: "Intersect",  icon: Layers3,           group: "boolean" },
+  // IO
+  { id: "save",              label: "Save",       icon: Save,              group: "io" },
+  { id: "export",            label: "Export",     icon: Download,          group: "io" },
+  { id: "handoff-slicer",    label: "Slicer",     icon: Send,              group: "io" },
 ];
 
 function Divider() {

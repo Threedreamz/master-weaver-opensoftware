@@ -32,7 +32,10 @@ import {
 } from "./geometry-cache";
 import {
   createBox,
+  createCylinder,
+  createSphere,
   extrudeProfile,
+  revolveProfile,
   booleanOp,
   fillet,
   chamfer,
@@ -45,7 +48,23 @@ import {
   type Point2,
   type TessellationQuality,
   type BooleanOpKind,
+  type RevolveAxis,
 } from "./cad-kernel";
+import { createCone } from "./ops/cone";
+import { createTorus } from "./ops/torus";
+import { createPyramid } from "./ops/pyramid";
+import { sweep } from "./ops/sweep";
+import { loft } from "./ops/loft";
+import { shell } from "./ops/shell";
+import { draft } from "./ops/draft";
+import { hole } from "./ops/hole";
+import { thread } from "./ops/thread";
+import { patternLinear } from "./ops/pattern-linear";
+import { patternCircular } from "./ops/pattern-circular";
+import { mirror } from "./ops/mirror";
+import { transform as transformOp } from "./ops/transform";
+import { group as groupOp } from "./ops/group";
+import { brepFillet, brepChamfer, brepShell, brepDraft } from "./brep/replicad-wrapper";
 
 type FeatureEvaluateResponse = z.infer<typeof FeatureEvaluateResponseSchema>;
 type BBox = z.infer<typeof BBoxSchema>;
@@ -129,14 +148,73 @@ function coerceProfile(raw: unknown): Point2[] {
  * already resolved parent solids (they're passed via `parentSolids`, in the
  * same order as feature.parentIds).
  */
-function evaluateFeature(
+async function evaluateFeature(
   feature: OpencadFeature,
   params: Record<string, unknown>,
   parentSolids: SolidResult[],
-): { solid: SolidResult; bbox: BBox; triangleCount: number } {
+): Promise<{ solid: SolidResult; bbox: BBox; triangleCount: number }> {
   let solid: SolidResult;
 
+  // Tiny helper — pull a number from params with a default, guards NaN.
+  const num = (key: string, def?: number): number => {
+    const v = params[key];
+    return typeof v === "number" && Number.isFinite(v)
+      ? v
+      : def !== undefined
+        ? def
+        : (() => {
+            throw new Error(`${feature.kind}: missing or non-numeric param "${key}"`);
+          })();
+  };
+  const vec3 = (key: string, def?: { x: number; y: number; z: number }) => {
+    const v = params[key];
+    if (v && typeof v === "object") {
+      const p = v as { x?: unknown; y?: unknown; z?: unknown };
+      if (typeof p.x === "number" && typeof p.y === "number" && typeof p.z === "number") {
+        return { x: p.x, y: p.y, z: p.z };
+      }
+    }
+    if (def) return def;
+    throw new Error(`${feature.kind}: missing or malformed Vec3 param "${key}"`);
+  };
+  const requireParent = (): SolidResult => {
+    if (parentSolids.length < 1)
+      throw new Error(`${feature.kind} requires 1 parent feature`);
+    return parentSolids[0];
+  };
+
   switch (feature.kind) {
+    /* ------------------------------------------------------ primitives */
+    case "box": {
+      solid = createBox(num("width"), num("height"), num("depth"));
+      break;
+    }
+    case "cylinder": {
+      solid = createCylinder(num("radius"), num("height"));
+      break;
+    }
+    case "sphere": {
+      solid = createSphere(num("radius"));
+      break;
+    }
+    case "cone": {
+      solid = createCone(num("radiusBase"), num("radiusTop", 0), num("height"));
+      break;
+    }
+    case "torus": {
+      solid = createTorus(
+        num("majorRadius"),
+        num("minorRadius"),
+        num("arcDeg", 360),
+      );
+      break;
+    }
+    case "pyramid": {
+      solid = createPyramid(num("sides", 4), num("baseRadius"), num("height"));
+      break;
+    }
+
+    /* -------------------------------------------------------- extrude */
     case "extrude": {
       // Box shorthand if params look like a box (width/height/depth); otherwise
       // treat as a profile extrusion.
@@ -160,41 +238,208 @@ function evaluateFeature(
       break;
     }
     case "revolve": {
-      // Revolve is not fully wired to revolveProfile here (profile must be 2D);
-      // approximate with extrudeProfile as a safe fallback.
       const profile = coerceProfile(params.profile);
-      const height = typeof params.height === "number" ? (params.height as number) : 1;
-      solid = extrudeProfile(profile, height);
+      const axis = ((typeof params.axis === "string" ? params.axis : "z") as RevolveAxis);
+      const angleDeg = typeof params.angleDeg === "number" ? params.angleDeg : 360;
+      solid = revolveProfile(profile, axis, angleDeg);
       break;
     }
+
+    /* ----------------------------------------------------- solid ops */
+    case "sweep": {
+      const profile = coerceProfile(params.profile);
+      const path = Array.isArray(params.path)
+        ? (params.path as Array<{ x: number; y: number; z: number }>)
+        : [];
+      const opts = (params.options as Record<string, unknown>) ?? {};
+      solid = sweep(profile, path, {
+        twistDeg: typeof opts.twistDeg === "number" ? opts.twistDeg : 0,
+        closedProfile: !!opts.closedProfile,
+      });
+      break;
+    }
+    case "loft": {
+      const sections = Array.isArray(params.sections)
+        ? (params.sections as Array<{ points: Point2[]; z: number }>)
+        : [];
+      const opts = (params.options as Record<string, unknown>) ?? {};
+      solid = loft(sections, { closed: !!opts.closed });
+      break;
+    }
+    case "shell": {
+      const parent = requireParent();
+      const thickness = num("thickness");
+      solid = params.useBrep
+        ? await brepShell(parent.mesh, thickness)
+        : shell(parent.mesh, thickness);
+      break;
+    }
+    case "draft": {
+      const parent = requireParent();
+      const pullAxis = (params.pullAxis === "x" || params.pullAxis === "y" ? params.pullAxis : "z") as "x" | "y" | "z";
+      const direction = (params.direction === "negative" ? "negative" : "positive") as "positive" | "negative";
+      const neutralValue = num("neutralValue", 0);
+      const angleDeg = num("angleDeg", 5);
+      solid = params.useBrep
+        ? await brepDraft(parent.mesh, neutralValue, angleDeg)
+        : draft(parent.mesh, neutralValue, angleDeg, { pullAxis, direction });
+      break;
+    }
+    case "hole": {
+      const parent = requireParent();
+      solid = hole(
+        parent.mesh,
+        vec3("position", { x: 0, y: 0, z: 0 }),
+        num("diameter"),
+        num("depth"),
+        {
+          kind: (params.kind as "simple" | "counterbore" | "countersink" | undefined) ?? "simple",
+          counterboreDiameter: typeof params.counterboreDiameter === "number" ? params.counterboreDiameter : undefined,
+          counterboreDepth: typeof params.counterboreDepth === "number" ? params.counterboreDepth : undefined,
+          countersinkDiameter: typeof params.countersinkDiameter === "number" ? params.countersinkDiameter : undefined,
+          countersinkAngleDeg: typeof params.countersinkAngleDeg === "number" ? params.countersinkAngleDeg : undefined,
+          axis: typeof params.axis === "object" && params.axis !== null ? vec3("axis") : undefined,
+          throughAll: !!params.throughAll,
+        },
+      );
+      break;
+    }
+    case "thread": {
+      const parent = requireParent();
+      solid = thread(parent.mesh, num("pitch"), num("length"), {
+        standard: (params.standard as "ISO" | "UN" | "custom" | undefined) ?? "ISO",
+        external: params.external !== false,
+        depthOverride: typeof params.depthOverride === "number" ? params.depthOverride : undefined,
+      });
+      break;
+    }
+
+    /* ------------------------------------------------------- patterns */
+    case "pattern-linear": {
+      const parent = requireParent();
+      const axisA = {
+        direction: vec3("directionA", { x: 1, y: 0, z: 0 }),
+        count: num("countA", 2),
+        spacing: num("spacingA", 10),
+      };
+      const axisB = params.directionB
+        ? {
+            direction: vec3("directionB"),
+            count: num("countB", 1),
+            spacing: num("spacingB", 10),
+          }
+        : undefined;
+      solid = patternLinear(parent.mesh, axisA, axisB);
+      break;
+    }
+    case "pattern-circular": {
+      const parent = requireParent();
+      solid = patternCircular(
+        parent.mesh,
+        vec3("axis", { x: 0, y: 0, z: 1 }),
+        vec3("origin", { x: 0, y: 0, z: 0 }),
+        num("count", 6),
+        {
+          totalAngleDeg: num("totalAngleDeg", 360),
+          symmetric: !!params.symmetric,
+        },
+      );
+      break;
+    }
+    case "mirror": {
+      const parent = requireParent();
+      solid = mirror(
+        parent.mesh,
+        {
+          normal: vec3("normal", { x: 1, y: 0, z: 0 }),
+          origin: vec3("origin", { x: 0, y: 0, z: 0 }),
+        },
+        { keepOriginal: params.keepOriginal !== false },
+      );
+      break;
+    }
+
+    /* ------------------------------------------------------ booleans */
     case "cut":
-    case "boolean": {
+    case "boolean":
+    case "boolean-union":
+    case "boolean-subtract":
+    case "boolean-intersect": {
       if (parentSolids.length < 2) {
         throw new Error(`${feature.kind} requires 2+ parent features, got ${parentSolids.length}`);
       }
       const op: BooleanOpKind =
-        feature.kind === "cut"
+        feature.kind === "cut" || feature.kind === "boolean-subtract"
           ? "subtract"
-          : ((params.op as BooleanOpKind | undefined) ?? "union");
+          : feature.kind === "boolean-intersect"
+            ? "intersect"
+            : feature.kind === "boolean-union"
+              ? "union"
+              : ((params.op as BooleanOpKind | undefined) ?? "union");
       solid = booleanOp(parentSolids[0].mesh, parentSolids[1].mesh, op);
-      // Fold any further parents into the result (n-ary union/intersect).
       for (let i = 2; i < parentSolids.length; i++) {
         solid = booleanOp(solid.mesh, parentSolids[i].mesh, op);
       }
       break;
     }
+
+    /* --------------------------------------------------- modifiers */
     case "fillet": {
-      if (parentSolids.length < 1) throw new Error("fillet requires 1 parent feature");
-      const radius = typeof params.radius === "number" ? (params.radius as number) : 1;
-      solid = fillet(parentSolids[0].mesh, radius);
+      const parent = requireParent();
+      const radius = num("radius", 1);
+      solid = params.useBrep
+        ? await brepFillet(parent.mesh, radius)
+        : fillet(parent.mesh, radius);
       break;
     }
     case "chamfer": {
-      if (parentSolids.length < 1) throw new Error("chamfer requires 1 parent feature");
-      const distance = typeof params.distance === "number" ? (params.distance as number) : 1;
-      solid = chamfer(parentSolids[0].mesh, distance);
+      const parent = requireParent();
+      const distance = num("distance", 1);
+      solid = params.useBrep
+        ? await brepChamfer(parent.mesh, distance)
+        : chamfer(parent.mesh, distance);
       break;
     }
+    case "transform": {
+      const parent = requireParent();
+      const scaleRaw = params.scale;
+      const scaleArg: { x: number; y: number; z: number } | number | undefined =
+        typeof scaleRaw === "number"
+          ? scaleRaw
+          : scaleRaw && typeof scaleRaw === "object"
+            ? vec3("scale")
+            : undefined;
+      solid = transformOp(parent.mesh, {
+        translate: params.translate ? vec3("translate") : undefined,
+        rotate:
+          params.rotate && typeof params.rotate === "object"
+            ? {
+                axis: vec3("rotateAxis", { x: 0, y: 0, z: 1 }),
+                angleDeg: num("rotateAngleDeg", 0),
+              }
+            : undefined,
+        scale: scaleArg,
+        origin: params.origin ? vec3("origin") : undefined,
+      });
+      break;
+    }
+    case "group": {
+      if (parentSolids.length < 1) throw new Error("group requires 1+ parent features");
+      const holeIdxSet = new Set<number>(
+        Array.isArray(params.holeIndices)
+          ? (params.holeIndices as number[]).filter((n) => typeof n === "number")
+          : [],
+      );
+      solid = groupOp(
+        parentSolids.map((p, i) => ({
+          id: `m${i}`,
+          geometry: p.mesh,
+          mode: holeIdxSet.has(i) ? ("hole" as const) : ("solid" as const),
+        })),
+      );
+      break;
+    }
+
     default:
       throw new Error(`unknown feature kind: ${(feature as { kind: string }).kind}`);
   }
@@ -343,7 +588,7 @@ export async function evaluateTree(
         parentSolids.push(r.solid);
       }
 
-      const evalOut = evaluateFeature(feature, effectiveParams, parentSolids);
+      const evalOut = await evaluateFeature(feature, effectiveParams, parentSolids);
       results.set(feature.id, { ...evalOut, contentHash });
 
       // Cache the serialized form of the mesh for future hits.
@@ -385,4 +630,114 @@ export async function evaluateTree(
     durationMs: performance.now() - started,
     errors,
   };
+}
+
+/* ----------------------------------------------------------- evaluateProject */
+
+/**
+ * Evaluate a project's feature tree and return a single merged
+ * `THREE.BufferGeometry` ready for export (STL/3MF/GLTF).
+ *
+ * Empty-project guard: if the project has zero features (just-created), returns
+ * an empty BufferGeometry with a zero-length position attribute. Exporters that
+ * consume this still produce a valid (empty) file instead of throwing HTTP 500,
+ * so the hub's fresh-project workbench doesn't surface a scary error before the
+ * user has a chance to add their first feature.
+ *
+ * Merge semantics: all non-poisoned leaf solids are concatenated into one
+ * non-indexed geometry (a leaf = a node with no successfully evaluated
+ * children). This matches how `evaluateTree` aggregates bboxes, so the viewer
+ * sees the full model when multiple branches exist.
+ *
+ * Consumed by `lib/exporters/{stl,threemf,gltf}.ts` via dynamic import.
+ */
+export async function evaluateProject(
+  projectId: string,
+  opts: { tessellation: TessellationQuality; versionId?: string },
+): Promise<THREE.BufferGeometry> {
+  const features = await db
+    .select()
+    .from(schema.opencadFeatures)
+    .where(eq(schema.opencadFeatures.projectId, projectId))
+    .orderBy(asc(schema.opencadFeatures.order));
+
+  // Empty-project guard — export must succeed on fresh projects.
+  if (features.length === 0) {
+    return new THREE.BufferGeometry();
+  }
+
+  const sorted = topoSort(features);
+  const dag: DAG = buildDAG(sorted);
+  const results = new Map<string, SolidResult>();
+  const poisoned = new Set<string>();
+
+  for (const feature of sorted) {
+    const parents = dag.get(feature.id)?.parents ?? [];
+    if (parents.some((p) => poisoned.has(p))) {
+      poisoned.add(feature.id);
+      continue;
+    }
+    const params = (feature.paramsJson ?? {}) as Record<string, unknown>;
+    try {
+      const parentSolids: SolidResult[] = [];
+      for (const pid of parents) {
+        const r = results.get(pid);
+        if (!r) throw new Error(`missing parent solid ${pid}`);
+        parentSolids.push(r);
+      }
+      const { solid } = evaluateFeature(feature, params, parentSolids);
+      results.set(feature.id, solid);
+    } catch {
+      poisoned.add(feature.id);
+    }
+  }
+
+  // Collect leaves (nodes with no successfully evaluated child).
+  const leaves: SolidResult[] = [];
+  for (const [id, solid] of results) {
+    const children = dag.get(id)?.children ?? [];
+    const hasEvalChild = children.some((c) => results.has(c) && !poisoned.has(c));
+    if (!hasEvalChild) leaves.push(solid);
+  }
+
+  if (leaves.length === 0) return new THREE.BufferGeometry();
+  if (leaves.length === 1) {
+    return tessellate(leaves[0].mesh.clone(), opts.tessellation);
+  }
+
+  // Manual merge: concatenate position/normal attributes into a single
+  // non-indexed geometry. Keeps us out of three/examples/BufferGeometryUtils
+  // which pulls in browser-ish helpers.
+  let totalVerts = 0;
+  const nonIndexedLeaves: THREE.BufferGeometry[] = leaves.map((l) => {
+    const g = l.mesh.clone();
+    const ni = g.getIndex() ? g.toNonIndexed() : g;
+    totalVerts += ni.getAttribute("position")?.count ?? 0;
+    return ni;
+  });
+  const merged = new THREE.BufferGeometry();
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  let offset = 0;
+  for (const g of nonIndexedLeaves) {
+    const pos = g.getAttribute("position");
+    if (!pos) continue;
+    const norm = g.getAttribute("normal");
+    const vc = pos.count;
+    for (let i = 0; i < vc; i++) {
+      positions[(offset + i) * 3 + 0] = pos.getX(i);
+      positions[(offset + i) * 3 + 1] = pos.getY(i);
+      positions[(offset + i) * 3 + 2] = pos.getZ(i);
+      if (norm) {
+        normals[(offset + i) * 3 + 0] = norm.getX(i);
+        normals[(offset + i) * 3 + 1] = norm.getY(i);
+        normals[(offset + i) * 3 + 2] = norm.getZ(i);
+      }
+    }
+    offset += vc;
+  }
+  merged.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  merged.computeVertexNormals();
+  return tessellate(merged, opts.tessellation);
 }
