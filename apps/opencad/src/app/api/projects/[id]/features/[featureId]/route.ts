@@ -63,10 +63,20 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if (parsed.data.paramsJson !== undefined) patch.paramsJson = parsed.data.paramsJson;
   if (parsed.data.parentIds !== undefined) patch.parentIds = parsed.data.parentIds;
   if (parsed.data.order !== undefined) patch.order = parsed.data.order;
-  patch.outputGeometryHash = null;
 
-  if (Object.keys(patch).length === 1) {
+  if (Object.keys(patch).length === 0) {
     return NextResponse.json(serializeFeature(existing));
+  }
+
+  // Only invalidate the cached geometry hash when the inputs that actually
+  // drive the kernel change — `paramsJson` or `parentIds`. Pure `order`
+  // reorderings don't alter the solid, so keep the cache intact and avoid
+  // an unnecessary re-evaluation on the next read.
+  if (
+    parsed.data.paramsJson !== undefined ||
+    parsed.data.parentIds !== undefined
+  ) {
+    patch.outputGeometryHash = null;
   }
 
   const [updated] = await db

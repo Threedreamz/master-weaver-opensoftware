@@ -54,7 +54,12 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
   const rows = await db
     .select()
     .from(schema.opencadProjectVersions)
-    .where(eq(schema.opencadProjectVersions.projectId, id))
+    .where(
+      and(
+        eq(schema.opencadProjectVersions.projectId, id),
+        isNull(schema.opencadProjectVersions.deletedAt),
+      ),
+    )
     .orderBy(asc(schema.opencadProjectVersions.version));
 
   const items = rows.map((r) => {

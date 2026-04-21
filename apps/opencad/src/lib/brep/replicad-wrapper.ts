@@ -53,6 +53,7 @@ export async function probeBrep(): Promise<BrepAvailability> {
   if (probeCache !== null) return probeCache;
 
   let mod: Record<string, unknown>;
+  let occtMod: Record<string, unknown> | null = null;
   try {
     // Dynamic import — resolved lazily so the module loads cleanly without replicad.
     // @ts-expect-error — replicad is an optional dep; module missing at typecheck is fine.
@@ -62,20 +63,49 @@ export async function probeBrep(): Promise<BrepAvailability> {
     return probeCache;
   }
 
-  // replicad exposes `initOpenCascade()` as a named export. Its signature is
-  // async — it resolves to an OCCT handle once the WASM is instantiated.
-  const init = mod.initOpenCascade as (() => Promise<unknown>) | undefined;
-  if (typeof init !== "function") {
-    probeCache = "wasm-failed";
-    return probeCache;
-  }
-
+  // replicad v0.20+ expects the consumer to pass an already-initialised OCCT
+  // instance via `setOC(oc)`. `replicad-opencascadejs` exports a default
+  // function that returns a promise resolving to the OCCT handle. Older
+  // versions of replicad expose `initOpenCascade()` directly — try that first
+  // and fall back to the two-package dance.
   try {
-    const race = await Promise.race([init(), timeoutPromise(WASM_INIT_TIMEOUT_MS)]);
+    const legacyInit = mod.initOpenCascade as (() => Promise<unknown>) | undefined;
+    if (typeof legacyInit === "function") {
+      const race = await Promise.race([legacyInit(), timeoutPromise(WASM_INIT_TIMEOUT_MS)]);
+      if (race === "timeout") {
+        probeCache = "wasm-failed";
+        return probeCache;
+      }
+      replicadHandle = { mod, oc: race };
+      probeCache = "available";
+      return probeCache;
+    }
+
+    // Modern path: import replicad-opencascadejs separately.
+    try {
+      // @ts-expect-error — optional peer, ships its own bundled WASM.
+      occtMod = (await import(/* webpackIgnore: true */ "replicad-opencascadejs")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      probeCache = "not-installed";
+      return probeCache;
+    }
+    const occtInit =
+      (occtMod.default as ((opts?: unknown) => Promise<unknown>) | undefined) ??
+      (occtMod.initOpenCascade as ((opts?: unknown) => Promise<unknown>) | undefined);
+    if (typeof occtInit !== "function") {
+      probeCache = "wasm-failed";
+      return probeCache;
+    }
+    const race = await Promise.race([occtInit(), timeoutPromise(WASM_INIT_TIMEOUT_MS)]);
     if (race === "timeout") {
       probeCache = "wasm-failed";
       return probeCache;
     }
+    const setOC = mod.setOC as ((oc: unknown) => void) | undefined;
+    if (typeof setOC === "function") setOC(race);
     replicadHandle = { mod, oc: race };
     probeCache = "available";
     return probeCache;

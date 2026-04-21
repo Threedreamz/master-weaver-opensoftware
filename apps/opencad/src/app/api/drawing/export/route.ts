@@ -22,7 +22,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { evaluateTree } from "@/lib/feature-timeline";
 import { deserializeGeometry } from "@/lib/cad-kernel";
@@ -133,11 +133,9 @@ function layoutViews(
 /* ---------------------------------------------------------- handler */
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = DrawingExportBody.safeParse(json);

@@ -238,7 +238,11 @@ export function fillet(
 ): SolidResult {
   if (edgeRadius <= 0) return toSolid(geom.clone());
   // eslint-disable-next-line no-console
-  console.warn("[opencad:kernel] fillet is a v1 approximation — use replicad for BREP-exact edges");
+  console.warn(
+    "[cad-kernel] fillet: replicad not loaded, no geometry change applied (radius=" +
+      edgeRadius +
+      "mm). Install `replicad` + `replicad-opencascadejs` to enable BREP-exact fillets."
+  );
   // Approximate: use `toNonIndexed` + smooth normals so downstream rendering
   // at least gets softened shading. Real fillet needs edge topology.
   const soft = geom.clone();
@@ -252,7 +256,11 @@ export function fillet(
 export function chamfer(geom: THREE.BufferGeometry, distance: number): SolidResult {
   if (distance <= 0) return toSolid(geom.clone());
   // eslint-disable-next-line no-console
-  console.warn("[opencad:kernel] chamfer is a v1 approximation — use replicad for BREP-exact edges");
+  console.warn(
+    "[cad-kernel] chamfer: replicad not loaded, no geometry change applied (distance=" +
+      distance +
+      "mm). Install `replicad` + `replicad-opencascadejs` to enable BREP-exact chamfers."
+  );
   return toSolid(geom.clone());
 }
 

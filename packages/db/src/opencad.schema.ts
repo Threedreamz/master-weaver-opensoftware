@@ -25,9 +25,11 @@ export const opencadProjectVersions = sqliteTable("opencad_project_versions", {
   featureTreeJson: text("feature_tree_json", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
   thumbnailUrl: text("thumbnail_url"),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
 }, (t) => [
   index("opencad_pv_project_id_idx").on(t.projectId),
   index("opencad_pv_parent_idx").on(t.parentVersionId),
+  index("opencad_pv_deleted_at_idx").on(t.deletedAt),
 ]);
 
 export const opencadSketches = sqliteTable("opencad_sketches", {

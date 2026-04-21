@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import {
   solveAssembly,
   type AssemblySolveInput,
@@ -70,10 +70,8 @@ const AssemblySolveBody = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
 
   const json = await req.json().catch(() => null);
   const parsed = AssemblySolveBody.safeParse(json);

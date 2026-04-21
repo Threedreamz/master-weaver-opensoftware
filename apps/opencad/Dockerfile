@@ -56,6 +56,30 @@ RUN mkdir -p /tmp/runtime-node-modules && \
       cp -rL "$BIND_STORE/node_modules/file-uri-to-path" /tmp/runtime-node-modules/file-uri-to-path 2>/dev/null || true; \
     fi
 
+# Prepare replicad + replicad-opencascadejs (WASM) runtime deps.
+# replicad is declared in serverExternalPackages in next.config.ts, so Next.js
+# does NOT bundle it — we must copy the module tree AND its WASM asset so the
+# dynamic import in replicad-wrapper.ts resolves at runtime.
+RUN RC_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "replicad@*" -type d | head -1) && \
+    if [ -n "$RC_STORE" ]; then \
+      cp -rL "$RC_STORE/node_modules/replicad" /tmp/runtime-node-modules/replicad; \
+    fi && \
+    OC_STORE=$(find node_modules/.pnpm -maxdepth 1 -name "replicad-opencascadejs@*" -type d | head -1) && \
+    if [ -n "$OC_STORE" ]; then \
+      cp -rL "$OC_STORE/node_modules/replicad-opencascadejs" /tmp/runtime-node-modules/replicad-opencascadejs; \
+    fi && \
+    # Stage the OCCT WASM binary under /public/wasm so it is served as a
+    # static asset and OpenCascade's `locateFile()` can resolve it via a
+    # same-origin fetch at runtime.
+    mkdir -p /app/apps/opencad/public/wasm && \
+    if [ -f /tmp/runtime-node-modules/replicad-opencascadejs/dist/opencascade.full.wasm ]; then \
+      cp /tmp/runtime-node-modules/replicad-opencascadejs/dist/opencascade.full.wasm /app/apps/opencad/public/wasm/opencascade.wasm; \
+    elif [ -f /tmp/runtime-node-modules/replicad-opencascadejs/dist/opencascade.wasm ]; then \
+      cp /tmp/runtime-node-modules/replicad-opencascadejs/dist/opencascade.wasm /app/apps/opencad/public/wasm/opencascade.wasm; \
+    else \
+      echo "[opencad:dockerfile] WARN: opencascade.wasm not found in replicad-opencascadejs/dist — BREP ops will fall back to mesh approximation"; \
+    fi
+
 # -- Stage 4: Production runner -----------------------------------------------
 FROM node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat

@@ -27,13 +27,13 @@ export const dynamic = "force-dynamic";
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { evaluateTree } from "@/lib/feature-timeline";
-import { deserializeGeometry, serializeGeometry } from "@/lib/cad-kernel";
+import { deserializeGeometry } from "@/lib/cad-kernel";
 import { getCachedGeometry } from "@/lib/geometry-cache";
 import {
   projectSolid,
@@ -83,11 +83,9 @@ function serializeProjection(r: ProjectionResult) {
 /* ---------------------------------------------------------- handler */
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = DrawingProjectBody.safeParse(json);
@@ -177,11 +175,6 @@ export async function POST(req: NextRequest) {
     }
     const geom = deserializeGeometry(cached);
 
-    // Touch `serializeGeometry` lint hint: imported but conditionally useful
-    // for future direct-geom paths. The void below prevents an unused-import
-    // error without dropping the import (kept for symmetry with other routes).
-    void serializeGeometry;
-
     const viewsToProject: StandardView[] =
       body.views && body.views.length > 0
         ? body.views
@@ -194,9 +187,6 @@ export async function POST(req: NextRequest) {
     // Dispose the reconstructed geometry — Three.js holds GPU-like refs
     // even on the server-side EdgesGeometry path.
     geom.dispose();
-    // `asc` is imported for symmetry with other timeline routes; keep the
-    // reference alive so it stays tree-shaken out of the bundle cleanly.
-    void asc;
 
     return NextResponse.json(
       {

@@ -387,7 +387,12 @@ async function evaluateFeature(
     case "fillet": {
       const parent = requireParent();
       const radius = num("radius", 1);
-      solid = params.useBrep
+      // Prefer BREP when explicitly requested OR when the radius is large
+      // enough that the mesh no-op fallback would be visibly wrong
+      // (radius >= 0.1mm). `brepFillet` itself falls back safely when
+      // replicad is missing.
+      const preferBrep = params.useBrep || radius >= 0.1;
+      solid = preferBrep
         ? await brepFillet(parent.mesh, radius)
         : fillet(parent.mesh, radius);
       break;
@@ -395,7 +400,8 @@ async function evaluateFeature(
     case "chamfer": {
       const parent = requireParent();
       const distance = num("distance", 1);
-      solid = params.useBrep
+      const preferBrep = params.useBrep || distance >= 0.1;
+      solid = preferBrep
         ? await brepChamfer(parent.mesh, distance)
         : chamfer(parent.mesh, distance);
       break;

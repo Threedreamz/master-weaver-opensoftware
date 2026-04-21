@@ -36,6 +36,8 @@
     "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "replicad": "^0.20.0",
+    "replicad-opencascadejs": "^0.20.0",
     "tailwindcss": "^4.2.1",
     "three": "^0.176.0",
     "three-bvh-csg": "^0.0.17",
