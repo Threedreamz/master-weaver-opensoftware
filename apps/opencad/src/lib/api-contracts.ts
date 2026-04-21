@@ -198,6 +198,84 @@ export const SketchSolveResponse = z.object({
   conflicts: z.array(z.object({ constraintId: z.string(), reason: z.string() })).optional(),
 });
 
+/* ======================================================== features CRUD */
+
+export const FeatureKind = z.enum([
+  "box", "cylinder", "sphere", "cone", "torus", "pyramid",
+  "extrude", "revolve", "sweep", "loft", "cut",
+  "shell", "draft", "hole", "thread",
+  "fillet", "chamfer", "transform",
+  "mirror", "pattern-linear", "pattern-circular",
+  "group",
+  "boolean", "boolean-union", "boolean-subtract", "boolean-intersect",
+  "sketch", "import",
+]);
+export type FeatureKind = z.infer<typeof FeatureKind>;
+
+export const FeatureSummary = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  kind: FeatureKind,
+  paramsJson: z.record(z.string(), z.unknown()),
+  parentIds: z.array(z.string()),
+  order: z.number().int().nonnegative(),
+  outputGeometryHash: z.string().nullable(),
+  createdAt: z.string(),
+});
+export const ListFeaturesResponse = z.object({ items: z.array(FeatureSummary) });
+
+/* POST /api/projects/[id]/features */
+export const CreateFeatureBody = z.object({
+  kind: FeatureKind,
+  paramsJson: z.record(z.string(), z.unknown()).default({}),
+  parentIds: z.array(z.string()).default([]),
+  order: z.number().int().nonnegative().optional(), // default = max(order)+1
+});
+export const CreateFeatureResponse = FeatureSummary;
+
+/* PATCH /api/projects/[id]/features/[featureId] */
+export const PatchFeatureBody = z.object({
+  paramsJson: z.record(z.string(), z.unknown()).optional(),
+  parentIds: z.array(z.string()).optional(),
+  order: z.number().int().nonnegative().optional(),
+});
+export const PatchFeatureResponse = FeatureSummary;
+
+/* DELETE /api/projects/[id]/features/[featureId] */
+export const DeleteFeatureResponse = z.object({ ok: z.literal(true), id: z.string() });
+
+/* ======================================================== sketches CRUD */
+
+export const SketchSummary = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  planeRef: z.string(),
+  entitiesJson: z.array(z.record(z.string(), z.unknown())),
+  constraintsJson: z.array(z.record(z.string(), z.unknown())),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export const ListSketchesResponse = z.object({ items: z.array(SketchSummary) });
+
+/* POST /api/projects/[id]/sketches */
+export const CreateSketchBody = z.object({
+  planeRef: z.string().min(1).default("xy"),
+  entitiesJson: z.array(z.record(z.string(), z.unknown())).default([]),
+  constraintsJson: z.array(z.record(z.string(), z.unknown())).default([]),
+});
+export const CreateSketchResponse = SketchSummary;
+
+/* PATCH /api/projects/[id]/sketches/[sketchId] */
+export const PatchSketchBody = z.object({
+  planeRef: z.string().min(1).optional(),
+  entitiesJson: z.array(z.record(z.string(), z.unknown())).optional(),
+  constraintsJson: z.array(z.record(z.string(), z.unknown())).optional(),
+});
+export const PatchSketchResponse = SketchSummary;
+
+/* DELETE /api/projects/[id]/sketches/[sketchId] */
+export const DeleteSketchResponse = z.object({ ok: z.literal(true), id: z.string() });
+
 /* POST /api/feature/evaluate — session — stateful re-eval of a project's tree */
 export const FeatureEvaluateBody = z.object({
   projectId: z.string(),
@@ -306,6 +384,14 @@ export const routes = {
   "DELETE /api/projects/[id]":                        { auth: "session", params: IdParam,          res: DeleteProjectResponse },
   "GET /api/projects/[id]/versions":                  { auth: "session", params: IdParam,          res: ListVersionsResponse },
   "POST /api/projects/[id]/versions":                 { auth: "session", params: IdParam, body: CreateVersionBody, res: CreateVersionResponse },
+  "GET /api/projects/[id]/features":                  { auth: "session", params: IdParam, res: ListFeaturesResponse },
+  "POST /api/projects/[id]/features":                 { auth: "session", params: IdParam, body: CreateFeatureBody, res: CreateFeatureResponse },
+  "PATCH /api/projects/[id]/features/[featureId]":    { auth: "session", body: PatchFeatureBody, res: PatchFeatureResponse },
+  "DELETE /api/projects/[id]/features/[featureId]":   { auth: "session", res: DeleteFeatureResponse },
+  "GET /api/projects/[id]/sketches":                   { auth: "session", params: IdParam, res: ListSketchesResponse },
+  "POST /api/projects/[id]/sketches":                  { auth: "session", params: IdParam, body: CreateSketchBody, res: CreateSketchResponse },
+  "PATCH /api/projects/[id]/sketches/[sketchId]":      { auth: "session", body: PatchSketchBody, res: PatchSketchResponse },
+  "DELETE /api/projects/[id]/sketches/[sketchId]":     { auth: "session", res: DeleteSketchResponse },
   "GET /api/projects/[id]/export/[format]":           { auth: "session", params: ExportParams, query: ExportQuery, res: "stream" as const },
   "POST /api/import/[format]":                        { auth: "session", params: ImportParams, res: ImportResponse, streaming: "duplex:half" as const },
   "POST /api/sketch/solve":                           { auth: "session", body: SketchSolveBody,    res: SketchSolveResponse },

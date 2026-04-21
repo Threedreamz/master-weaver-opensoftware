@@ -229,6 +229,30 @@ export const OPENCAD_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> =
   guest: [],
 };
 
+export const OPENCAM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
+  editor: [
+    "cam:projects:read",
+    "cam:projects:write",
+    "cam:operations:read",
+    "cam:operations:write",
+    "cam:tools:read",
+    "cam:tools:write",
+    "cam:posts:read",
+    "cam:posts:write",
+    "cam:gcode:read",
+    "cam:gcode:generate",
+    "cam:opencad:import",
+  ],
+  viewer: [
+    "cam:projects:read",
+    "cam:operations:read",
+    "cam:tools:read",
+    "cam:posts:read",
+    "cam:gcode:read",
+  ],
+  guest: [],
+};
+
 export const OPENFARM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
   editor: [
     "farm:printers:read",

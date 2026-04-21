@@ -17,6 +17,8 @@
     "./openfarm": "./src/openfarm.schema.ts",
     "./openslicer": "./src/openslicer.schema.ts",
     "./opencad": "./src/opencad.schema.ts",
+    "./opencam": "./src/opencam.schema.ts",
+    "./opensimulation": "./src/opensimulation.schema.ts",
     "./opendesktop": "./src/opendesktop.schema.ts",
     "./openbounty": "./src/openbounty.schema.ts",
     "./openpipeline": "./src/openpipeline.schema.ts",
