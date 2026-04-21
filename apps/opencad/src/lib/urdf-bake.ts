@@ -330,6 +330,7 @@ export async function bakeUrdfToGlb(opts: {
   const world = computeLinkWorldTransforms(robot);
 
   const doc = new Document();
+  doc.createBuffer();
   const scene = doc.createScene(robot.name);
   const mat = makeGrayMaterial(doc);
   const skipped: BakeReport["meshesSkipped"] = [];
