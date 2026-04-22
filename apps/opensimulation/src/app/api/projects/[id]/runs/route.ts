@@ -4,15 +4,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { requireSession } from "@/lib/auth-helpers";
+import { requireSessionOrApiKey } from "@/lib/auth-helpers";
 import { ListRunsQuery } from "@/lib/api-contracts";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
 /* GET /api/projects/[id]/runs — list runs for a project */
 export async function GET(req: NextRequest, ctx: RouteCtx) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
   const { id: projectId } = await ctx.params;
 
   // Ensure the project belongs to the caller (and is not soft-deleted) before
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
     .where(
       and(
         eq(schema.opensimulationProjects.id, projectId),
-        eq(schema.opensimulationProjects.userId, s.userId),
+        eq(schema.opensimulationProjects.userId, auth.userId),
         isNull(schema.opensimulationProjects.deletedAt),
       ),
     )

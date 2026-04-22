@@ -4,18 +4,18 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { desc, eq } from "drizzle-orm";
-import { requireSession } from "@/lib/auth-helpers";
+import { requireSessionOrApiKey } from "@/lib/auth-helpers";
 import { CreateMaterialBody } from "@/lib/api-contracts";
 
 /* GET /api/materials — list ALL materials for current user (no pagination in M1) */
-export async function GET(_req: NextRequest) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
 
   const rows = await db
     .select()
     .from(schema.opensimulationMaterials)
-    .where(eq(schema.opensimulationMaterials.userId, s.userId))
+    .where(eq(schema.opensimulationMaterials.userId, auth.userId))
     .orderBy(desc(schema.opensimulationMaterials.createdAt));
 
   const items = rows.map((row) => ({
@@ -36,8 +36,8 @@ export async function GET(_req: NextRequest) {
 
 /* POST /api/materials — create a user-owned material preset */
 export async function POST(req: NextRequest) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
 
   const json = await req.json().catch(() => null);
   const parsed = CreateMaterialBody.safeParse(json);
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const [row] = await db
     .insert(schema.opensimulationMaterials)
     .values({
-      userId: s.userId,
+      userId: auth.userId,
       name: parsed.data.name,
       density: parsed.data.density,
       youngModulus: parsed.data.youngModulus,

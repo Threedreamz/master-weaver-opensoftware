@@ -4,14 +4,14 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireSession } from "@/lib/auth-helpers";
+import { requireSessionOrApiKey } from "@/lib/auth-helpers";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
 /* GET /api/runs/[id] — full run detail (inputJson + resultJson expanded) */
-export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
 
   // Join against projects to enforce ownership — runs inherit user scope via
@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
     .where(
       and(
         eq(schema.opensimulationRuns.id, id),
-        eq(schema.opensimulationProjects.userId, s.userId),
+        eq(schema.opensimulationProjects.userId, auth.userId),
         isNull(schema.opensimulationProjects.deletedAt),
       ),
     )

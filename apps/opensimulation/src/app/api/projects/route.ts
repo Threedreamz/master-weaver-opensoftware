@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
-import { requireSession } from "@/lib/auth-helpers";
+import { requireSessionOrApiKey } from "@/lib/auth-helpers";
 import {
   ListProjectsQuery,
   CreateProjectBody,
@@ -12,9 +12,9 @@ import {
 
 /* GET /api/projects — list current user's projects (paginated by createdAt cursor) */
 export async function GET(req: NextRequest) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const userId = s.userId;
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.userId;
 
   const { searchParams } = new URL(req.url);
   const parsed = ListProjectsQuery.safeParse({
@@ -89,9 +89,9 @@ export async function GET(req: NextRequest) {
 
 /* POST /api/projects — create a new simulation project */
 export async function POST(req: NextRequest) {
-  const s = await requireSession();
-  if (!s) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const userId = s.userId;
+  const auth = await requireSessionOrApiKey(req);
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.userId;
 
   const json = await req.json().catch(() => null);
   const parsed = CreateProjectBody.safeParse(json);

@@ -51,7 +51,8 @@ export async function requireSessionOrApiKey(
   req: NextRequest | Request,
 ): Promise<AuthedIdentity | NextResponse> {
   if (checkApiKey(req)) {
-    return { userId: "service", via: "api-key" };
+    const hubUserId = req.headers.get("x-hub-user-id");
+    return { userId: hubUserId || "service", via: "api-key" };
   }
   const s = await requireSession();
   if (!s) {
