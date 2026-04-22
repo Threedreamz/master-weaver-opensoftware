@@ -12,8 +12,12 @@
  *      user can be redirected / opened in a new tab.
  *
  * Env vars:
- *   - OPENSLICER_URL              (required) — server-to-server base URL,
- *                                   e.g. http://openslicer.railway.internal:4176
+ *   - OPENSLICER_URL              (required) — server-to-server base URL. Use
+ *                                   the PUBLIC Railway URL (https://…up.railway.app),
+ *                                   NOT the `*.railway.internal` hostname. Railway's
+ *                                   private network is IPv6-only and Node 18+
+ *                                   fetch throws ENOTFOUND trying IPv4 first. Fix
+ *                                   verified 2026-04-22 for opencad→openslicer.
  *   - OPENSLICER_PUBLIC_URL       (required) — public-facing base URL for
  *                                   the deep-link returned to the user's browser
  *   - OPENSOFTWARE_API_KEY        (required) — x-api-key for the gateway

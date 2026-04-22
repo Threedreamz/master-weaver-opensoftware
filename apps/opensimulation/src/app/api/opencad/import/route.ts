@@ -144,9 +144,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "OPENCAD_NOT_CONFIGURED" }, { status: 503 });
     }
 
-    const qs = new URLSearchParams({ format: "stl", tessellation: body.tessellation });
-    const exportUrl = `${opencadUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(body.openCadProjectId)}/export?${qs.toString()}`;
-    const res = await fetch(exportUrl, { headers: { "x-api-key": apiKey } });
+    // opencad export route is `/api/projects/[id]/export/[format]` — format is a
+    // path segment, not a query param. Auth is hybrid: x-api-key + x-hub-user-id
+    // together short-circuit to a trusted-server call (see opencad's
+    // lib/internal-user.ts).
+    const qs = new URLSearchParams({ tessellation: body.tessellation });
+    const exportUrl = `${opencadUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(body.openCadProjectId)}/export/stl?${qs.toString()}`;
+    const res = await fetch(exportUrl, {
+      headers: {
+        "x-api-key": apiKey,
+        "x-hub-user-id": auth.userId,
+      },
+    });
     if (!res.ok) {
       return NextResponse.json(
         { error: "OPENCAD_EXPORT_FAILED", details: { status: res.status } },
