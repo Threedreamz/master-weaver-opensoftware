@@ -16,7 +16,7 @@ async function loadProjectSummary(projectId: string, userId: string) {
     .where(
       and(
         eq(schema.opensimulationProjects.id, projectId),
-        eq(schema.opensimulationProjectauth.userId, userId),
+        eq(schema.opensimulationProjects.userId, userId),
         isNull(schema.opensimulationProjects.deletedAt),
       ),
     )
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
     .where(
       and(
         eq(schema.opensimulationProjects.id, id),
-        eq(schema.opensimulationProjectauth.userId, auth.userId),
+        eq(schema.opensimulationProjects.userId, auth.userId),
         isNull(schema.opensimulationProjects.deletedAt),
       ),
     )
@@ -100,7 +100,7 @@ export async function DELETE(req: NextRequest, ctx: RouteCtx) {
     .where(
       and(
         eq(schema.opensimulationProjects.id, id),
-        eq(schema.opensimulationProjectauth.userId, auth.userId),
+        eq(schema.opensimulationProjects.userId, auth.userId),
         isNull(schema.opensimulationProjects.deletedAt),
       ),
     )
