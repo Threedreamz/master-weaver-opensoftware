@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { FlowStep } from "@opensoftware/openflow-core";
+import type { FlowStep, FlowSettings } from "@opensoftware/openflow-core";
 import InspectorContent from "./InspectorContent";
 import InspectorSettings from "./InspectorSettings";
 import InspectorDesign from "./InspectorDesign";
@@ -23,6 +23,7 @@ interface InspectorPanelProps {
   selectedComponentId: string | null;
   onComponentSelect: (id: string | null) => void;
   allSteps?: FlowStep[];
+  pricingConfig?: FlowSettings["pricingConfig"];
 }
 
 export default function InspectorPanel({
@@ -31,6 +32,7 @@ export default function InspectorPanel({
   selectedComponentId,
   onComponentSelect,
   allSteps,
+  pricingConfig,
 }: InspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("inhalt");
 
@@ -69,6 +71,8 @@ export default function InspectorPanel({
             selectedComponentId={selectedComponentId}
             onComponentSelect={onComponentSelect}
             allSteps={allSteps}
+            pricingEnabled={pricingConfig?.enabled ?? false}
+            pricingCurrency={pricingConfig?.currencySymbol ?? "€"}
           />
         )}
         {activeTab === "einstellungen" && (
@@ -77,6 +81,7 @@ export default function InspectorPanel({
             onStepChange={onStepChange}
             selectedComponentId={selectedComponentId}
             onComponentSelect={onComponentSelect}
+            pricingEnabled={pricingConfig?.enabled ?? false}
           />
         )}
         {activeTab === "design" && (

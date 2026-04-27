@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkApiAuth } from "@/lib/api-auth";
-import { createAIJob, completeAIJob, failAIJob } from "@/db/queries/collaboration";
-import { createFlow } from "@/db/queries/flows";
-import { db } from "@/db/index";
-import { flowSteps, stepComponents, flowEdges } from "@/db/schema";
+import { callClaudeCli } from "@/lib/claude-cli";
+import { createAIJob, completeAIJob } from "@/db/queries/collaboration";
+import { createFlow, updateFlow } from "@/db/queries/flows";
+import {
+  buildFlowInDb,
+  buildSettingsFromTheme,
+  type GeneratedStep,
+  type GeneratedComponent,
+} from "@/lib/ai-flow-builder";
 
-interface GenerateBriefing {
+export interface GenerateBriefing {
   goal: string;
   audience?: string;
   conversionGoal?: string;
@@ -15,20 +20,12 @@ interface GenerateBriefing {
   fields?: string[];
   tone?: string;
   language?: "de" | "en";
-}
-
-interface GeneratedStep {
-  label: string;
-  type: "start" | "step" | "end";
-  components: GeneratedComponent[];
-}
-
-interface GeneratedComponent {
-  componentType: string;
-  fieldKey: string;
-  label: string;
-  required: boolean;
-  config: Record<string, unknown>;
+  theme?: {
+    primaryColor: string;
+    backgroundColor: string;
+    textColor: string;
+    borderRadius?: string;
+  };
 }
 
 // ─── Structured flow generation (no AI key required) ─────────────────────────
@@ -37,7 +34,6 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
   const lang = briefing.language ?? "de";
   const isDE = lang === "de";
   const industry = briefing.industry?.toLowerCase() ?? "";
-  const tone = briefing.tone?.toLowerCase() ?? "professional";
 
   const steps: GeneratedStep[] = [];
 
@@ -62,20 +58,46 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
   // ── Middle steps based on desired steps or fields ─────────────────────────
   if (briefing.desiredSteps && briefing.desiredSteps.length > 0) {
     for (const stepDesc of briefing.desiredSteps) {
-      steps.push({
-        label: stepDesc,
-        type: "step",
-        components: [
-          { componentType: "heading", fieldKey: `${steps.length}_heading`, label: "Abschnittstitel", required: false, config: { text: stepDesc, level: "h2" } },
-          { componentType: "text-input", fieldKey: `${steps.length}_input`, label: stepDesc, required: true, config: { placeholder: isDE ? "Deine Antwort..." : "Your answer..." } },
-        ],
-      });
+      const optionsMatch = stepDesc.match(/\(Optionen:\s*(.+)\)$/);
+      const options = optionsMatch
+        ? optionsMatch[1].split(",").map((o) => o.trim()).filter(Boolean)
+        : [];
+      const questionText = stepDesc.replace(/\s*\(Optionen:[^)]*\)$/, "").trim();
+
+      const components: GeneratedComponent[] = [
+        { componentType: "heading", fieldKey: `${steps.length}_heading`, label: "Überschrift", required: false, config: { text: questionText, level: "h2" } },
+      ];
+
+      if (options.length > 0) {
+        const compType = options.length <= 4 ? "card-selector" : "radio-group";
+        components.push({
+          componentType: compType,
+          fieldKey: `${steps.length}_choice`,
+          label: questionText,
+          required: true,
+          config: {
+            options: options.map((o) => ({
+              value: o.toLowerCase().replace(/[^a-z0-9]/gi, "_"),
+              label: o,
+            })),
+            columns: Math.min(options.length, 3),
+          },
+        });
+      } else {
+        components.push({
+          componentType: "text-input",
+          fieldKey: `${steps.length}_input`,
+          label: questionText,
+          required: true,
+          config: { placeholder: isDE ? "Deine Antwort..." : "Your answer..." },
+        });
+      }
+
+      steps.push({ label: questionText, type: "step", components });
     }
   } else {
-    // Generate steps based on fields and industry
     const requestedFields = briefing.fields ?? [];
 
-    // Basic contact step
     const contactComponents: GeneratedComponent[] = [
       { componentType: "heading", fieldKey: "contact_heading", label: "Überschrift", required: false, config: { text: isDE ? "Kontaktdaten" : "Contact Details", level: "h2" } },
     ];
@@ -92,7 +114,6 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
 
     steps.push({ label: isDE ? "Kontaktdaten" : "Contact", type: "step", components: contactComponents });
 
-    // Industry-specific step
     if (industry.includes("real") || industry.includes("immo")) {
       steps.push({
         label: isDE ? "Immobilie" : "Property",
@@ -114,7 +135,6 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
         ],
       });
     } else {
-      // Generic qualification step
       steps.push({
         label: isDE ? "Details" : "Details",
         type: "step",
@@ -127,7 +147,6 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
     }
   }
 
-  // ── Thank-you / End step ──────────────────────────────────────────────────
   steps.push({
     label: isDE ? "Abschluss" : "Thank You",
     type: "end",
@@ -140,29 +159,14 @@ function generateFlowFromBriefing(briefing: GenerateBriefing): GeneratedStep[] {
   return steps;
 }
 
-// ─── AI-enhanced generation (if Anthropic key present) ───────────────────────
+// ─── AI-enhanced generation (if CLI available) ───────────────────────────────
 
-async function generateWithAI(briefing: GenerateBriefing): Promise<GeneratedStep[] | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey });
-
-    const prompt = `Du bist ein Experte für Conversion-optimierte Online-Formulare und Flow-Builder.
-
-Erstelle einen strukturierten Multi-Step-Flow basierend auf folgendem Briefing:
-- Ziel: ${briefing.goal}
-- Zielgruppe: ${briefing.audience ?? "Allgemein"}
-- Conversion-Ziel: ${briefing.conversionGoal ?? "Lead generieren"}
-- Branche: ${briefing.industry ?? "Allgemein"}
-- Gewünschte Schritte: ${briefing.desiredSteps?.join(", ") ?? "Automatisch bestimmen"}
-- Felder: ${briefing.fields?.join(", ") ?? "Kontakt + Qualifizierung"}
-- Tonalität: ${briefing.tone ?? "Professionell"}
-- Sprache: ${briefing.language === "en" ? "Englisch" : "Deutsch"}
-
-Antworte NUR mit einem gültigen JSON-Array von Schritten. Jeder Schritt hat:
+/**
+ * Build the prompt. If `plan` is provided, instruct the model to translate the
+ * outline 1:1 into JSON steps without inventing or re-ordering pages.
+ */
+export function buildGeneratePrompt(briefing: GenerateBriefing, plan?: string): string {
+  const commonSchema = `Antworte NUR mit einem gültigen JSON-Array von Schritten. Jeder Schritt hat:
 {
   "label": "Schrittname",
   "type": "start" | "step" | "end",
@@ -179,7 +183,6 @@ Antworte NUR mit einem gültigen JSON-Array von Schritten. Jeder Schritt hat:
 
 Regeln:
 - Erster Schritt immer type "start", letzter immer "end"
-- Maximal 6 Schritte
 - Pro Schritt maximal 5 Elemente
 - Heading als erstes Element jedes Schritts
 - fieldKey muss eindeutig sein (snake_case)
@@ -187,16 +190,47 @@ Regeln:
 
 JSON (nur das Array, kein Text davor/danach):`;
 
-    const message = await client.messages.create({
-      model: "claude-opus-4-6",
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
-    });
+  if (plan) {
+    return `Du bist ein Experte für Conversion-optimierte Online-Formulare.
+Setze die folgende Outline 1:1 in einen JSON-Flow um. Erfinde KEINE zusätzlichen Seiten, ändere NICHT die Reihenfolge, füge KEINE inhaltlichen Ergänzungen hinzu. Jede Seite der Outline entspricht genau einem Schritt im JSON.
 
-    const content = message.content[0];
-    if (content.type !== "text") return null;
+Outline:
+${plan}
 
-    const text = content.text.trim();
+Briefing (nur als Kontext für Tonalität und Sprache):
+- Ziel: ${briefing.goal}
+- Zielgruppe: ${briefing.audience ?? "Allgemein"}
+- Conversion-Ziel: ${briefing.conversionGoal ?? "Lead generieren"}
+- Branche: ${briefing.industry ?? "Allgemein"}
+- Tonalität: ${briefing.tone ?? "Professionell"}
+- Sprache: ${briefing.language === "en" ? "Englisch" : "Deutsch"}
+
+${commonSchema}`;
+  }
+
+  return `Du bist ein Experte für Conversion-optimierte Online-Formulare und Flow-Builder.
+
+Erstelle einen strukturierten Multi-Step-Flow basierend auf folgendem Briefing:
+- Ziel: ${briefing.goal}
+- Zielgruppe: ${briefing.audience ?? "Allgemein"}
+- Conversion-Ziel: ${briefing.conversionGoal ?? "Lead generieren"}
+- Branche: ${briefing.industry ?? "Allgemein"}
+- Gewünschte Schritte: ${briefing.desiredSteps?.join(", ") ?? "Automatisch bestimmen"}
+- Felder: ${briefing.fields?.join(", ") ?? "Kontakt + Qualifizierung"}
+- Tonalität: ${briefing.tone ?? "Professionell"}
+- Sprache: ${briefing.language === "en" ? "Englisch" : "Deutsch"}
+
+Wichtig: Falls ein gewünschter Schritt Optionen enthält (Format: "Frage (Optionen: A, B, C)"), erstelle dafür eine card-selector-Komponente (bei ≤4 Optionen) oder radio-group-Komponente (bei >4 Optionen) mit diesen exakten Optionen.
+
+Maximal 6 Schritte.
+
+${commonSchema}`;
+}
+
+async function generateWithAI(briefing: GenerateBriefing, plan?: string): Promise<GeneratedStep[] | null> {
+  try {
+    const prompt = buildGeneratePrompt(briefing, plan);
+    const text = (await callClaudeCli(prompt)).trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return null;
 
@@ -216,62 +250,46 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const briefing: GenerateBriefing = body.briefing ?? body;
+    const plan: string | undefined = typeof body.plan === "string" && body.plan.trim().length > 0
+      ? body.plan
+      : undefined;
 
     if (!briefing.goal) {
       return NextResponse.json({ error: "briefing.goal is required" }, { status: 400 });
     }
 
-    const job = await createAIJob({ type: "generate_flow", input: JSON.stringify(briefing) });
+    const job = await createAIJob({ type: "generate_flow", input: JSON.stringify({ briefing, plan }) });
 
     // Try AI first, fall back to rule-based generation
-    let generatedSteps = await generateWithAI(briefing);
+    let generatedSteps = await generateWithAI(briefing, plan);
+    let aiUsed = true;
     if (!generatedSteps) {
       generatedSteps = generateFlowFromBriefing(briefing);
+      aiUsed = false;
     }
 
     // Create the actual flow in the database
     const slug = `ai-flow-${Date.now()}`;
     const flowName = briefing.goal.substring(0, 60);
 
-    const flow = await createFlow({ name: flowName, slug, description: `AI-generiert: ${briefing.goal}` });
+    const flow = await createFlow({
+      name: flowName,
+      slug,
+      description: `AI-generiert: ${briefing.goal}`,
+      aiPlan: plan,
+      aiBriefing: JSON.stringify(briefing),
+    });
 
-    // Insert steps and components
-    let sortOrder = 0;
-    const stepIds: string[] = [];
-    for (const stepDef of generatedSteps) {
-      const [step] = await db.insert(flowSteps).values({
-        flowId: flow.id,
-        type: stepDef.type,
-        label: stepDef.label,
-        sortOrder: sortOrder++,
-        positionX: 0,
-        positionY: sortOrder * 150,
-      }).returning();
+    await buildFlowInDb({
+      flowId: flow.id,
+      generatedSteps,
+      clearExisting: false,
+    });
 
-      stepIds.push(step.id);
-
-      for (let ci = 0; ci < stepDef.components.length; ci++) {
-        const compDef = stepDef.components[ci];
-        await db.insert(stepComponents).values({
-          stepId: step.id,
-          componentType: compDef.componentType,
-          fieldKey: compDef.fieldKey,
-          label: compDef.label,
-          required: compDef.required,
-          config: JSON.stringify(compDef.config),
-          sortOrder: ci,
-        });
-      }
-    }
-
-    // Create linear edges (each step → next step with "always" condition)
-    for (let i = 0; i < stepIds.length - 1; i++) {
-      await db.insert(flowEdges).values({
-        flowId: flow.id,
-        sourceStepId: stepIds[i],
-        targetStepId: stepIds[i + 1],
-        conditionType: "always",
-        priority: 0,
+    // Apply theme/design settings chosen in the dialog
+    if (briefing.theme) {
+      await updateFlow(flow.id, {
+        settings: buildSettingsFromTheme(briefing.theme),
       });
     }
 
@@ -282,7 +300,7 @@ export async function POST(request: NextRequest) {
       flowName: flow.name,
       slug: flow.slug,
       steps: generatedSteps.length,
-      aiUsed: !!process.env.ANTHROPIC_API_KEY,
+      aiUsed,
     }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/ai/generate]", error);

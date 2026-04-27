@@ -12,6 +12,7 @@
     "dev:lawyer": "turbo dev --filter=openlawyer",
     "dev:sem": "turbo dev --filter=opensem",
     "dev:openbounty": "turbo dev --filter=openbounty",
+    "dev:opencam": "turbo dev --filter=@opensoftware/opencam-app",
     "test": "turbo test",
     "test:watch": "turbo test:watch",
     "lint": "turbo lint",

@@ -552,38 +552,78 @@ function ActionsTab() {
   const reset = useViewerStore((s) => s.reset);
   const loadPersistedState = useModuleStore((s) => s.loadPersistedState);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const showFeedback = useCallback((msg: string) => {
     setFeedback(msg);
-    setTimeout(() => setFeedback(null), 2000);
+    setTimeout(() => setFeedback(null), 4000);
   }, []);
+
+  const apiBase =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_OPEN3D_API_URL) ||
+    'http://localhost:4173';
+  const gatewayBase =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_OPENSOFTWARE_GATEWAY_URL) ||
+    'http://localhost:4160';
+
+  const testConverters = useCallback(async () => {
+    setBusy('converters');
+    const start = Date.now();
+    try {
+      const capRes = await fetch(`${apiBase}/api/lrp/capabilities`, { signal: AbortSignal.timeout(5000) });
+      if (!capRes.ok) throw new Error(`capabilities HTTP ${capRes.status}`);
+      const caps = await capRes.json();
+      const count = Array.isArray(caps.capabilities) ? caps.capabilities.length : 0;
+      const elapsed = Date.now() - start;
+      showFeedback(`✅ open3d-api reachable — ${count} capabilities, ${elapsed}ms`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showFeedback(`❌ open3d-api check failed: ${msg}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [apiBase, showFeedback]);
+
+  const ecosystemAudit = useCallback(async () => {
+    setBusy('audit');
+    try {
+      const res = await fetch(`${gatewayBase}/api/appstore/manifests`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`manifests HTTP ${res.status}`);
+      const data = await res.json();
+      const s = data.summary ?? {};
+      showFeedback(
+        `📡 Gateway: ${s.reachable ?? '?'} reachable / ${s.unreachable ?? '?'} unreachable / ${s.total ?? '?'} total`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showFeedback(`❌ ecosystem audit failed: ${msg}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [gatewayBase, showFeedback]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={sectionLabelStyle}>Developer Actions</div>
 
-      <button
-        onClick={() => showFeedback('Converter test suite coming soon')}
-        style={actionBtnStyle}
-      >
+      <button onClick={testConverters} disabled={busy === 'converters'} style={actionBtnStyle}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <span style={{ color: TEXT, fontSize: '12px', fontWeight: 600 }}>Test Converters</span>
+          <span style={{ color: TEXT, fontSize: '12px', fontWeight: 600 }}>
+            {busy === 'converters' ? 'Probing open3d-api…' : 'Test Converters'}
+          </span>
           <span style={{ color: MUTED, fontSize: '10px' }}>
-            Run all converter tests against sample files
+            Probe open3d-api at {apiBase} + list registered LRP capabilities
           </span>
         </div>
       </button>
 
-      <button
-        onClick={() => showFeedback('Ecosystem audit coming soon')}
-        style={actionBtnStyle}
-      >
+      <button onClick={ecosystemAudit} disabled={busy === 'audit'} style={actionBtnStyle}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <span style={{ color: TEXT, fontSize: '12px', fontWeight: 600 }}>
-            Run Ecosystem Audit
+            {busy === 'audit' ? 'Fetching manifests…' : 'Run Ecosystem Audit'}
           </span>
           <span style={{ color: MUTED, fontSize: '10px' }}>
-            Check package health and dependency status
+            Ping opensoftware-gateway (aggregated manifests) at {gatewayBase}
           </span>
         </div>
       </button>

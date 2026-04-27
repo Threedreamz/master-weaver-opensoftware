@@ -76,12 +76,12 @@ export async function getFlowBySlug(slug: string) {
   });
 }
 
-export async function createFlow(data: { name: string; slug: string; description?: string; settings?: string; createdBy?: string }) {
+export async function createFlow(data: { name: string; slug: string; description?: string; settings?: string; createdBy?: string; aiPlan?: string; aiBriefing?: string }) {
   const [flow] = await db.insert(flows).values(data).returning();
   return flow;
 }
 
-export async function updateFlow(id: string, data: Partial<{ name: string; slug: string; description: string; status: "draft" | "published" | "archived"; settings: string }>) {
+export async function updateFlow(id: string, data: Partial<{ name: string; slug: string; description: string; status: "draft" | "published" | "archived"; settings: string; aiPlan: string | null; aiBriefing: string | null }>) {
   const [flow] = await db.update(flows)
     .set({ ...data, updatedAt: sql`(unixepoch())` })
     .where(eq(flows.id, id))

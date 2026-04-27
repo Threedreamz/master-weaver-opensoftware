@@ -2,12 +2,24 @@
 
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import type { UserRole } from "@opensoftware/config/rbac";
 
 const ROLES: UserRole[] = ["admin", "editor", "viewer", "guest"];
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [email, setEmail] = useState("");

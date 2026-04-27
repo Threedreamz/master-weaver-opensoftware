@@ -170,6 +170,89 @@ export const OPENSEM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> =
   guest: [],
 };
 
+export const OPENPIPELINE_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
+  editor: [
+    "pipeline:pipelines:read",
+    "pipeline:pipelines:write",
+    "pipeline:karten:read",
+    "pipeline:karten:write",
+    "pipeline:karten:move",
+    "pipeline:stufen:read",
+    "pipeline:stufen:write",
+    "pipeline:labels:read",
+    "pipeline:labels:write",
+    "pipeline:mitglieder:read",
+    "pipeline:mitglieder:write",
+    "pipeline:kommentare:read",
+    "pipeline:kommentare:write",
+    "pipeline:anhaenge:read",
+    "pipeline:anhaenge:write",
+    "pipeline:custom-fields:read",
+    "pipeline:custom-fields:write",
+    "pipeline:vorlagen:read",
+    "pipeline:vorlagen:write",
+    "pipeline:automatisierungen:read",
+  ],
+  viewer: [
+    "pipeline:pipelines:read",
+    "pipeline:karten:read",
+    "pipeline:stufen:read",
+    "pipeline:labels:read",
+    "pipeline:mitglieder:read",
+    "pipeline:kommentare:read",
+    "pipeline:anhaenge:read",
+    "pipeline:custom-fields:read",
+    "pipeline:vorlagen:read",
+  ],
+  guest: [],
+};
+
+export const OPENCAD_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
+  editor: [
+    "cad:projects:read",
+    "cad:projects:write",
+    "cad:parts:read",
+    "cad:parts:write",
+    "cad:assemblies:read",
+    "cad:assemblies:write",
+    "cad:cam:read",
+    "cad:cam:write",
+    "cad:export:read",
+  ],
+  viewer: [
+    "cad:projects:read",
+    "cad:parts:read",
+    "cad:assemblies:read",
+    "cad:cam:read",
+    "cad:export:read",
+  ],
+  guest: [],
+};
+
+export const OPENCAM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
+  editor: [
+    "cam:projects:read",
+    "cam:projects:write",
+    "cam:operations:read",
+    "cam:operations:write",
+    "cam:tools:read",
+    "cam:tools:write",
+    "cam:posts:read",
+    "cam:posts:write",
+    "cam:gcode:read",
+    "cam:gcode:generate",
+    "cam:opencad:import",
+  ],
+  viewer: [
+    "cam:projects:read",
+    "cam:operations:read",
+    "cam:tools:read",
+    "cam:posts:read",
+    "cam:gcode:read",
+  ],
+  guest: [],
+};
+
 export const OPENFARM_PERMISSIONS: Record<Exclude<UserRole, "admin">, string[]> = {
   editor: [
     "farm:printers:read",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { runAutomations } from "@/lib/automation-engine";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -46,6 +47,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .run();
 
   const updated = db.select().from(schema.pipKarten).where(eq(schema.pipKarten.id, id)).get();
+
+  // Run automations on status change to erledigt
+  if (body.status === "erledigt" && existing.status !== "erledigt") {
+    await runAutomations({
+      typ: "karte_erledigt",
+      karteId: id,
+      pipelineId: existing.pipelineId,
+      stufeId: existing.stufeId,
+    });
+  }
+
   return NextResponse.json(updated);
 }
 

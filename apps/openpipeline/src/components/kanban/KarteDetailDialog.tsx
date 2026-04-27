@@ -36,7 +36,7 @@ export function KarteDetailDialog({ karte, onSchliessen, onAktualisiert }: Karte
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onSchliessen}>
       <div
-        className="bg-zinc-900 rounded-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
+        className="bg-zinc-900 rounded-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -63,8 +63,8 @@ export function KarteDetailDialog({ karte, onSchliessen, onAktualisiert }: Karte
             <textarea
               value={beschreibung}
               onChange={(e) => setBeschreibung(e.target.value)}
-              rows={4}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+              rows={12}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[200px]"
             />
           </div>
 

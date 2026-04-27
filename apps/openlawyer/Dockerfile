@@ -70,7 +70,8 @@ COPY --from=builder /app/apps/openlawyer/drizzle /app/apps/openlawyer/drizzle
 COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/
 
 # Create data directory for SQLite (volume mount point on Railway)
-RUN mkdir -p /app/data
+# /app/data for absolute DATABASE_URL paths, ./data for relative default (WORKDIR = /app/apps/openlawyer)
+RUN mkdir -p /app/data /app/apps/openlawyer/data
 
 # Ensure cache directories are writable
 RUN chown -R nextjs:nodejs /app

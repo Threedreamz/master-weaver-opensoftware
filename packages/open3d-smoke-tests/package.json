@@ -1,0 +1,20 @@
+{
+  "name": "@opensoftware/open3d-smoke-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-app smoke tests for the 6 Open3D-family apps. Uses fs reads instead of runtime spinup so excluded-from-workspace apps (open3d-studio/desktop/worker) can still be covered.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'"
+  },
+  "dependencies": {
+    "@opensoftware/openpipeline-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

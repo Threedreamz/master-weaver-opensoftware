@@ -38,7 +38,7 @@ export async function getSearchIntelligenceData(
   const link = await db.select().from(searchIntelligenceLinks)
     .where(eq(searchIntelligenceLinks.accountId, accountId))
     .limit(1)
-    .then((rows) => rows[0] ?? null);
+    .then((rows: any[]) => rows[0] ?? null);
 
   if (!link) return null;
 
@@ -55,7 +55,7 @@ export async function getSearchIntelligenceData(
     keywords,
     assets,
   ] = await Promise.all([
-    db.select().from(semrushSnapshots).where(eq(semrushSnapshots.domain, link.semrushDomain)).limit(1).then((r) => r[0] ?? null),
+    db.select().from(semrushSnapshots).where(eq(semrushSnapshots.domain, link.semrushDomain)).limit(1).then((r: any[]) => r[0] ?? null),
     db.select().from(semrushDomainHistory).where(eq(semrushDomainHistory.linkId, link.id)).limit(30),
     db.select().from(semrushKeywordData).where(eq(semrushKeywordData.linkId, link.id)),
     db.select().from(semrushKeywordData).where(eq(semrushKeywordData.linkId, link.id)),
@@ -68,9 +68,9 @@ export async function getSearchIntelligenceData(
     db.select().from(paidAdsAssets).where(eq(paidAdsAssets.accountId, accountId)),
   ]);
 
-  const organicOnly = organicKeywords.filter((k) => k.source === "organic");
-  const paidOnly = paidKeywords.filter((k) => k.source === "paid");
-  const overlapping = organicKeywords.filter((k) => k.source === "both");
+  const organicOnly = organicKeywords.filter((k: any) => k.source === "organic");
+  const paidOnly = paidKeywords.filter((k: any) => k.source === "paid");
+  const overlapping = organicKeywords.filter((k: any) => k.source === "both");
 
   return {
     linkId: link.id,

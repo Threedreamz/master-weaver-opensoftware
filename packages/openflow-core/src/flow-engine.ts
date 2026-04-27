@@ -1,4 +1,4 @@
-import type { FlowEdge, ConditionType } from "./types";
+import type { FlowEdge, ConditionType, StepComponent, DisplayRule } from "./types";
 
 /**
  * Given current answers and the current step, determine the next step.
@@ -61,6 +61,113 @@ export function evaluateCondition(edge: FlowEdge, answers: Record<string, unknow
     default:
       return false;
   }
+}
+
+/**
+ * Determine whether a component should be visible given the current answers.
+ * If the component has no visibilityConditions, it is always visible.
+ * Otherwise all conditions must pass (AND logic) or at least one (OR logic).
+ */
+export function isComponentVisible(
+  component: StepComponent,
+  answers: Record<string, unknown>
+): boolean {
+  if (!component.visibilityConditions?.length) return true;
+
+  const logic = component.visibilityLogic ?? "AND";
+  const results = component.visibilityConditions.map(cond =>
+    evaluateCondition(
+      {
+        conditionType: cond.conditionType,
+        conditionFieldKey: cond.fieldKey,
+        conditionValue: cond.conditionValue,
+      } as FlowEdge,
+      answers
+    )
+  );
+
+  return logic === "AND" ? results.every(Boolean) : results.some(Boolean);
+}
+
+/**
+ * Determine whether a component should be visible, combining flow-level display rules
+ * with per-component visibility conditions.
+ *
+ * Priority: if any display rule targets this component, rules take precedence.
+ * Otherwise falls back to per-component isComponentVisible().
+ */
+export function isComponentVisibleCombined(
+  component: StepComponent,
+  stepId: string,
+  displayRules: DisplayRule[],
+  answers: Record<string, unknown>
+): boolean {
+  const targeting = displayRules.filter(r =>
+    r.targets.some(t => t.componentId === component.id && t.stepId === stepId && !t.subFieldKey)
+  );
+
+  if (targeting.length > 0) {
+    for (const rule of targeting) {
+      const results = rule.conditions.map(cond =>
+        evaluateCondition(
+          {
+            conditionType: cond.conditionType,
+            conditionFieldKey: cond.fieldKey,
+            conditionValue: cond.conditionValue,
+          } as FlowEdge,
+          answers
+        )
+      );
+      const met = rule.conditionLogic === "AND"
+        ? results.every(Boolean)
+        : results.some(Boolean);
+      if (met) return rule.action === "show";
+    }
+    // No rule matched: default hidden when "show" rules exist, visible when only "hide" rules exist
+    return !targeting.some(r => r.action === "show");
+  }
+
+  return isComponentVisible(component, answers);
+}
+
+/**
+ * Determine whether a sub-field of a composite component (e.g. contact-form) is visible
+ * according to display rules. Returns true if no rule targets this sub-field — caller
+ * falls back to config-level flag.
+ */
+export function isSubFieldVisibleByRules(
+  componentId: string,
+  stepId: string,
+  subFieldKey: string,
+  displayRules: DisplayRule[],
+  answers: Record<string, unknown>
+): boolean {
+  const targeting = displayRules.filter(r =>
+    r.targets.some(t =>
+      t.componentId === componentId &&
+      t.stepId === stepId &&
+      t.subFieldKey === subFieldKey
+    )
+  );
+  if (targeting.length === 0) return true;
+
+  for (const rule of targeting) {
+    const results = rule.conditions.map(cond =>
+      evaluateCondition(
+        {
+          conditionType: cond.conditionType,
+          conditionFieldKey: cond.fieldKey,
+          conditionValue: cond.conditionValue,
+        } as FlowEdge,
+        answers
+      )
+    );
+    const met = rule.conditionLogic === "AND"
+      ? results.every(Boolean)
+      : results.some(Boolean);
+    if (met) return rule.action === "show";
+  }
+  return !targeting.some(r => r.action === "show");
 }
 
 /**

@@ -32,6 +32,7 @@ import { seedOpenpayroll } from "./seed-openpayroll";
 import { seedOpendesktop } from "./seed-opendesktop";
 import { seedOpenpipeline } from "./seed-openpipeline";
 import { seedOpenbounty } from "./seed-openbounty";
+import { seedIes } from "./seed-ies";
 
 // ─── App Registry ───────────────────────────────────────────────────────────
 
@@ -98,6 +99,18 @@ const apps: AppSeedConfig[] = [
     dbPath: resolve(REPO_ROOT, "apps/openbounty/data/openbounty.db"),
     schema: { ...sharedSchema, ...openbountySchema },
     seed: seedOpenbounty,
+  },
+  {
+    // IES Maschinenpark — alternative seed-Variante für OpenDesktop.
+    // Schreibt in eine separate DB (opendesktop-ies.db), damit die Mustermann-
+    // Demo-Daten nicht überschrieben werden. Aufruf: --app=ies
+    // Auf der echten On-Prem-OpenDesktop-Instanz bei IES wird DB_PATH via env
+    // gesetzt (IES_OPENDESKTOP_DB) und zeigt auf den lokalen IES-Server.
+    name: "ies",
+    dbPath: process.env.IES_OPENDESKTOP_DB
+      || resolve(REPO_ROOT, "apps/opendesktop/data/opendesktop-ies.db"),
+    schema: { ...sharedSchema, ...opendesktopSchema },
+    seed: seedIes,
   },
 ];
 

@@ -1,0 +1,78 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+
+const secret = process.env.AUTH_SECRET;
+
+/**
+ * Public path prefixes that do not require authentication.
+ * Everything else requires a valid session.
+ */
+const PUBLIC_PATH_PREFIXES = [
+  "/login",
+  "/api/auth",
+  "/api/health",
+  "/api/appstore/manifest",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Let health check, appstore manifest, integration handshake and auth
+  // routes through without auth. /api/integration is the gateway handshake
+  // endpoint — public by design so the gateway can discover this service
+  // without holding a credential.
+  if (
+    pathname === "/api/health" ||
+    pathname === "/api/appstore/manifest" ||
+    pathname === "/api/integration" ||
+    pathname.startsWith("/api/auth")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Other API routes: check authentication via JWT OR shared-secret.
+  // Hub-to-opencad internal calls pass X-API-Key matching OPENSOFTWARE_API_KEY
+  // + X-Hub-User-Id for scoping — per-route handlers resolve the acting user
+  // via `resolveUser()` (see lib/internal-user.ts). Standalone browser sessions
+  // fall through to JWT.
+  if (pathname.startsWith("/api")) {
+    const apiKey = request.headers.get("x-api-key");
+    const expectedKey = process.env.OPENSOFTWARE_API_KEY;
+    if (expectedKey && apiKey && apiKey === expectedKey) {
+      return NextResponse.next();
+    }
+    const token = await getToken({ req: request, secret });
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
+  // Public pages: no auth required
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Protected pages (including /admin/*): require authentication via JWT
+  if (pathname.startsWith("/admin")) {
+    const token = await getToken({ req: request, secret });
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|_vercel|api/health|.*\\..*).*)"],
+};

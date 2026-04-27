@@ -1,0 +1,37 @@
+name: reality-composer
+version: "1.0"
+description: Convert iPhone LiDAR scan to AR-ready USDZ/reality via Xcode RealityConverter + RealityKit (macOS only)
+input:
+  type: object
+  properties:
+    inputFile:
+      type: string
+      description: Path to scan file (.objcap, .usdz, .obj, .ply, .glb, .fbx, .dae, .abc)
+    outputFormat:
+      type: string
+      enum: [usdz, reality]
+      default: usdz
+    optimize:
+      type: boolean
+      default: true
+      description: Run mesh optimization pass (only applies to xcrun realityconverter path)
+  required: [inputFile]
+output:
+  type: object
+  properties:
+    outputPath:
+      type: string
+    format:
+      type: string
+    fileSize:
+      type: integer
+      description: Output file size in bytes
+    vertexCount:
+      type: integer
+    success:
+      type: boolean
+    method:
+      type: string
+      enum: [xcrun-realityconverter, swift-realitykit]
+timeout: 300000
+tags: [open3d, apple, realitykit, xcode, usdz, iphone, lidar, reality-composer]

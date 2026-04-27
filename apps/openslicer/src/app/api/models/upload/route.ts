@@ -5,6 +5,13 @@ import { createHash } from "node:crypto";
 import { parseModel, computeMeshMetrics } from "@opensoftware/slicer-core";
 import { createModel, updateModel } from "../../../../db/queries/models";
 
+// Node runtime — better-sqlite3 + fs/promises are not available in edge.
+// maxDuration allows ~500MB STL ingest + mesh parse without Railway's edge
+// timeout killing the request mid-parse.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
 const UPLOAD_DIR = join(process.cwd(), "data", "models");
 
 export async function POST(request: Request) {

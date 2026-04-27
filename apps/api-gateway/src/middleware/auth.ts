@@ -32,13 +32,21 @@ export async function validateApiKey(request: Request): Promise<AuthResult> {
   }
 
   // Production: validate against registered API keys
-  // TODO: Validate against database or key store
   // Produktion: Gegen registrierte API-Keys pruefen
+  //
+  // OPENSOFTWARE_API_KEY is the canonical per-bubble shared secret set by
+  // scripts/register-<bubble>-opensoftware-clients.cjs on both the gateway
+  // (consumer) and the bubble's admin panel (caller). ETD_API_KEY /
+  // THREEDREAMZ_API_KEY are legacy per-caller aliases kept for backwards
+  // compatibility with older admin builds.
   const knownKeys: Record<string, string> = {
-    // Placeholder — in production these come from DB/env
+    [process.env.OPENSOFTWARE_API_KEY ?? ""]: "bubble",
     [process.env.ETD_API_KEY ?? ""]: "etd",
     [process.env.THREEDREAMZ_API_KEY ?? ""]: "3dreamz",
   };
+  // Drop the empty-string key that appears when an env var is unset, so an
+  // unconfigured env var cannot accidentally authenticate empty input.
+  delete knownKeys[""];
 
   const appId = knownKeys[apiKey];
   if (appId) {

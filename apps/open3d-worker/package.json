@@ -14,7 +14,10 @@
     "@mw/open3d-converter": "file:../../../master-weaver-master/packages/open3d-converter",
     "@mw/open3d-mesh": "file:../../../master-weaver-master/packages/open3d-mesh",
     "@mw/lrp-core": "file:../../../master-weaver-master/packages/lrp-core",
-    "@mw/lrp-bridge": "file:../../../master-weaver-master/packages/lrp-bridge"
+    "@mw/lrp-bridge": "file:../../../master-weaver-master/packages/lrp-bridge",
+    "@opensoftware/queue": "file:../../packages/queue",
+    "@opensoftware/core-types": "file:../../packages/core-types",
+    "@opensoftware/openpipeline-client": "file:../../packages/openpipeline-client"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

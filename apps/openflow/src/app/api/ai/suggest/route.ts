@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkApiAuth } from "@/lib/api-auth";
+import { callClaudeCli } from "@/lib/claude-cli";
 import type { FlowStep } from "@opensoftware/openflow-core";
 
 interface SuggestRequest {
@@ -136,13 +137,7 @@ function getRuleBasedSuggestions(req: SuggestRequest): Suggestion[] {
 // ─── AI-enhanced suggestions ─────────────────────────────────────────────────
 
 async function getSuggestionsWithAI(req: SuggestRequest): Promise<Suggestion[] | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-
   try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey });
-
     const contextDesc = req.context === "headline" ? "Überschriften-Vorschläge"
       : req.context === "cta" ? "Call-to-Action Button-Texte"
       : req.context === "component" ? `Inhaltsvorschläge für "${req.componentType}"`
@@ -162,16 +157,9 @@ Antworte NUR mit einem JSON-Array von maximal 5 Vorschlägen:
 
 JSON:`;
 
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const text = await callClaudeCli(prompt);
 
-    const content = message.content[0];
-    if (content.type !== "text") return null;
-
-    const jsonMatch = content.text.match(/\[[\s\S]*\]/);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return null;
 
     return JSON.parse(jsonMatch[0]) as Suggestion[];
@@ -200,7 +188,7 @@ export async function POST(request: NextRequest) {
       suggestions = getRuleBasedSuggestions(body);
     }
 
-    return NextResponse.json({ suggestions, aiUsed: !!process.env.ANTHROPIC_API_KEY });
+    return NextResponse.json({ suggestions, aiUsed: true });
   } catch (error) {
     console.error("[POST /api/ai/suggest]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

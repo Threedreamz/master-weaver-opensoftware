@@ -1,0 +1,38 @@
+{
+  "name": "@opensoftware/openportal-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./src/schemas/index.ts",
+      "default": "./dist/schemas/index.js"
+    },
+    "./types": {
+      "types": "./src/types/index.ts",
+      "default": "./dist/types/index.js"
+    },
+    "./adapter": {
+      "types": "./src/adapter/index.ts",
+      "default": "./dist/adapter/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'"
+  },
+  "dependencies": {
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

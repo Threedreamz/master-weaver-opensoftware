@@ -2,6 +2,15 @@ packages:
   - apps/*
   - packages/*
   - tools/*
+  # open3d-worker, open3d-studio, open3d-desktop all depend on @mw/open3d-*
+  # packages via file: paths in a sibling monorepo that isn't always checked
+  # out (master-weaver-master). They stay excluded from the workspace and
+  # consume @opensoftware/* via file: protocol.
+  # open3d-api has no @mw/* deps — it's in the workspace so it can consume
+  # @opensoftware/queue via workspace:* like the other apps.
+  - "!apps/open3d-worker"
+  - "!apps/open3d-studio"
+  - "!apps/open3d-desktop"
 
 onlyBuiltDependencies:
   - better-sqlite3

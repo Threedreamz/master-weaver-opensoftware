@@ -66,7 +66,8 @@ COPY --from=builder /app/apps/opensem/drizzle /app/apps/opensem/drizzle
 COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/
 
 # Create data directory for SQLite (volume mount point on Railway)
-RUN mkdir -p /app/data
+# /app/data for absolute DATABASE_URL paths, ./data for relative default (WORKDIR = /app/apps/opensem)
+RUN mkdir -p /app/data /app/apps/opensem/data
 
 # Create non-root user and grant ownership
 RUN addgroup --system --gid 1001 nodejs && \

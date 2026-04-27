@@ -262,6 +262,36 @@ toolHandlers.set('fusion_undo', async (_args) => {
   }
 });
 
+// ── Tool: fusion_import_stl ───────────────────────────────────────────────
+toolHandlers.set('fusion_import_stl', async (args) => {
+  try {
+    const data = await fusionPost('/fusion/import_stl', {
+      stl_path: args.stl_path,
+      body_name: args.body_name ?? '',
+    });
+    return textResult(data);
+  } catch (err) {
+    if (isOffline(err)) return fusionOfflineError();
+    return errorResult(String(err));
+  }
+});
+
+// ── Tool: fusion_import_scad ──────────────────────────────────────────────
+toolHandlers.set('fusion_import_scad', async (args) => {
+  try {
+    const data = await fusionPost('/fusion/import_scad', {
+      scad_path: args.scad_path,
+      body_name: args.body_name ?? '',
+      parameter_overrides: args.parameter_overrides ?? {},
+      timeout: args.timeout ?? 60,
+    });
+    return textResult(data);
+  } catch (err) {
+    if (isOffline(err)) return fusionOfflineError();
+    return errorResult(String(err));
+  }
+});
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 export function getToolHandler(name: string): ToolHandler | undefined {
@@ -450,6 +480,36 @@ export function getAllToolDefinitions(): McpToolDefinition[] {
       name: 'fusion_undo',
       description: 'Undo the last operation in Fusion 360.',
       inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+      name: 'fusion_import_stl',
+      description: 'Import an STL file from disk into the active Fusion 360 design as a mesh body.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          stl_path: { type: 'string', description: 'Absolute path to the .stl file to import' },
+          body_name: { type: 'string', description: 'Optional name to assign the imported mesh body' },
+        },
+        required: ['stl_path'],
+      },
+    },
+    {
+      name: 'fusion_import_scad',
+      description: 'Render an OpenSCAD (.scad) file to an STL mesh via the OpenSCAD CLI, then import it into the active Fusion 360 design. OpenSCAD must be installed.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          scad_path: { type: 'string', description: 'Absolute path to the .scad file' },
+          body_name: { type: 'string', description: 'Optional name for the imported mesh body (defaults to the .scad filename)' },
+          parameter_overrides: {
+            type: 'object',
+            description: 'Optional OpenSCAD parameter overrides (e.g. {"wall_thickness": 2.5, "height": 10}). These are prepended as top-level variable assignments, shadowing values in the .scad file.',
+            additionalProperties: { type: 'number' },
+          },
+          timeout: { type: 'number', description: 'OpenSCAD render timeout in seconds. Default: 60' },
+        },
+        required: ['scad_path'],
+      },
     },
   ];
 }

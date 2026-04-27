@@ -29,6 +29,12 @@ export async function PATCH(
         typeof body.validation === "string"
           ? body.validation
           : JSON.stringify(body.validation);
+    if (body.visibilityConditions !== undefined)
+      updateData.visibilityConditions =
+        typeof body.visibilityConditions === "string"
+          ? body.visibilityConditions
+          : JSON.stringify(body.visibilityConditions);
+    if (body.visibilityLogic !== undefined) updateData.visibilityLogic = body.visibilityLogic;
 
     const [component] = await db
       .update(stepComponents)

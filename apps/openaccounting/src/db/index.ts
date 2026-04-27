@@ -1,22 +1,27 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
 
 export { schema };
 
-type DbType = ReturnType<typeof drizzle<typeof schema>>;
-type SqliteType = InstanceType<typeof Database>;
+type DbType = any;
+type SqliteType = any;
 
 let _db: DbType | null = null;
 let _sqlite: SqliteType | null = null;
 
 function init() {
   if (!_db) {
-    const dbPath = (process.env.DATABASE_URL || process.env.DB_PATH || "./data/openaccounting.db").replace(/^file:/, "");
-    _sqlite = new Database(dbPath);
-    _sqlite.pragma("journal_mode = WAL");
-    _sqlite.pragma("foreign_keys = ON");
-    _db = drizzle(_sqlite, { schema });
+    try {
+      const Database = require("better-sqlite3");
+      const { drizzle } = require("drizzle-orm/better-sqlite3");
+      const dbPath = (process.env.DATABASE_URL || process.env.DB_PATH || "./data/openaccounting.db").replace(/^file:/, "");
+      _sqlite = new Database(dbPath);
+      _sqlite.pragma("journal_mode = WAL");
+      _sqlite.pragma("foreign_keys = ON");
+      _db = drizzle(_sqlite, { schema });
+    } catch (err) {
+      console.error("[openaccounting] Failed to initialize SQLite:", (err as Error).message);
+      throw err;
+    }
   }
   return { db: _db, sqlite: _sqlite! };
 }

@@ -31,3 +31,10 @@ output:
       type: boolean
 timeout: 600000
 tags: [open3d, gaussian-splatting, 3dgs, training, neural]
+# Stability: experimental | beta | stable (default: stable)
+# See .claude/rules/opensoftware-conventions.md → "Capability Stability Levels".
+stability: experimental
+stabilityNote: >
+  gsplat / OpenSplat training paths depend on CUDA GPU + the user's installed
+  Python deps; COLMAP fallback produces a point-cloud but no actual splats.
+  Real training only works on a properly provisioned ML box.

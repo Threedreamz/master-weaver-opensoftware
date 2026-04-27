@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
-import type { FlowStep } from "@opensoftware/openflow-core";
+import type { FlowStep, DisplayRule } from "@opensoftware/openflow-core";
+import { isComponentVisible } from "@opensoftware/openflow-core";
 import type { ResolvedTheme } from "./FlowRenderer";
 import { useRendererStore } from "./rendererStore";
 import { ComponentRenderer } from "./ComponentRenderer";
@@ -25,7 +26,10 @@ interface StepRendererProps {
   errors: Record<string, string>;
   primaryColor: string;
   theme: ResolvedTheme;
+  displayRules?: DisplayRule[];
   onNext?: () => void;
+  /** Navigate to the next step without running field validation */
+  onNextSkipValidation?: () => void;
   onBack?: () => void;
   onJump?: (stepId: string) => void;
   onSubmit?: () => void;
@@ -39,7 +43,9 @@ export function StepRenderer({
   errors,
   primaryColor,
   theme,
+  displayRules,
   onNext,
+  onNextSkipValidation,
   onBack,
   onJump,
   onSubmit,
@@ -78,7 +84,7 @@ export function StepRenderer({
         <p style={{ color: theme.textMuted, marginBottom: "1.5rem" }}>{step.config.subtitle}</p>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {step.components.map((component) => {
+        {step.components.filter(c => isComponentVisible(c, answers)).map((component) => {
           const isButton = BUTTON_TYPES.has(component.componentType);
           const isAutoNav = AUTO_NAV_TYPES.has(component.componentType);
           const navAction = component.config?.navigationAction as NavigationAction | undefined;
@@ -95,6 +101,7 @@ export function StepRenderer({
                   const isSubmitType = component.componentType === "submit-button" || component.componentType === "SubmitButton";
                   // Buttons pass their action as the value (e.g. "next", "previous", "submit", "jump")
                   const buttonAction = isSubmitType ? "submit" : ((value as string) || "next");
+                  const skipVal = !!(component.config as Record<string, unknown>)?.skipValidation;
                   if (buttonAction === "previous" || buttonAction === "back") {
                     // Back/previous never requires validation
                     onBack?.();
@@ -103,12 +110,12 @@ export function StepRenderer({
                     if (onValidate && !onValidate()) return;
                     onSubmit?.();
                   } else if (buttonAction === "jump" && component.config?.targetStepId) {
-                    // Validate before jump
-                    if (onValidate && !onValidate()) return;
+                    // Validate before jump (unless skip-validation is enabled)
+                    if (!skipVal && onValidate && !onValidate()) return;
                     onJump?.(component.config.targetStepId as string);
                   } else {
-                    // "next" — handleNext() already validates internally
-                    onNext?.();
+                    // "next" — use skip-validation variant if configured
+                    skipVal ? onNextSkipValidation?.() : onNext?.();
                   }
                   return;
                 }
@@ -156,6 +163,9 @@ export function StepRenderer({
               }}
               primaryColor={primaryColor}
               theme={theme}
+              stepId={step.id}
+              displayRules={displayRules}
+              answers={answers}
             />
           );
         })}

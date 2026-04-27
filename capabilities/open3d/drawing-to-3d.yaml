@@ -48,3 +48,9 @@ output:
       type: string
 timeout: 300000
 tags: [open3d, ai, drawing, 2d-to-3d, openscad, vision, technical-drawing]
+# Stability: experimental | beta | stable (default: stable)
+stability: beta
+stabilityNote: >
+  V3 (hierarchy with holes) just shipped. Works well on high-contrast synthetic
+  drawings; scanned drawings with noisy backgrounds may require manual parameter
+  tuning. Feedback welcome via the /2dto3d UI's iteration loop.

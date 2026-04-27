@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { runAutomations } from "@/lib/automation-engine";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -36,6 +37,16 @@ export async function POST(req: NextRequest, { params }: Params) {
         createdAt: now,
       })
       .run();
+
+    // Run automations
+    await runAutomations({
+      typ: "karte_verschoben",
+      karteId: id,
+      pipelineId: karte.pipelineId,
+      stufeId: neueStufeId,
+      vonStufeId,
+      nachStufeId: neueStufeId,
+    });
   }
 
   const updated = db.select().from(schema.pipKarten).where(eq(schema.pipKarten.id, id)).get();

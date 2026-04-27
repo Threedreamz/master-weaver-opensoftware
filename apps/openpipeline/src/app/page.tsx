@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { eq, isNull } from "drizzle-orm";
-import { Plus, FolderKanban, ArrowRight } from "lucide-react";
+import { Plus, FolderKanban, ArrowRight, Users, CheckSquare } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,20 @@ export default async function DashboardPage() {
             <h1 className="text-xl font-bold text-zinc-100">OpenPipeline</h1>
           </div>
           <div className="flex gap-2">
+            <Link
+              href="/accounts"
+              className="px-3 py-1.5 text-sm rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 flex items-center gap-1"
+            >
+              <Users className="w-4 h-4" />
+              Accounts
+            </Link>
+            <Link
+              href="/checklisten"
+              className="px-3 py-1.5 text-sm rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 flex items-center gap-1"
+            >
+              <CheckSquare className="w-4 h-4" />
+              Checklisten
+            </Link>
             <Link
               href="/vorlagen"
               className="px-3 py-1.5 text-sm rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700"

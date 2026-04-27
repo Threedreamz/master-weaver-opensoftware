@@ -8,14 +8,22 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_FORMATS = ["stl", "3mf", "obj", "step"] as const;
 type FileFormat = (typeof ALLOWED_FORMATS)[number];
 
+// Maps alternate extensions to their canonical FileFormat
+const EXT_TO_FORMAT: Record<string, FileFormat> = { stp: "step" };
+
 const MODELS_DIR = join(process.cwd(), "data", "models");
 
 function getFileExtension(filename: string): string {
   return filename.split(".").pop()?.toLowerCase() || "";
 }
 
-function isValidFormat(ext: string): ext is FileFormat {
+function isValidFormat(ext: string): boolean {
+  if (ext in EXT_TO_FORMAT) return true;
   return ALLOWED_FORMATS.includes(ext as FileFormat);
+}
+
+function normalizeExt(ext: string): FileFormat {
+  return (EXT_TO_FORMAT[ext] ?? ext) as FileFormat;
 }
 
 export async function POST(request: NextRequest) {
@@ -53,10 +61,11 @@ export async function POST(request: NextRequest) {
     const ext = getFileExtension(file.name);
     if (!isValidFormat(ext)) {
       return NextResponse.json(
-        { error: `Invalid file type: .${ext}. Allowed: ${ALLOWED_FORMATS.join(", ")}` },
+        { error: `Invalid file type: .${ext}. Allowed: ${ALLOWED_FORMATS.join(", ")}, stp` },
         { status: 400 }
       );
     }
+    const fileFormat = normalizeExt(ext);
 
     // Parse tags
     let tags: string[] | undefined;
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       filename: file.name,
       filePath: `data/models/${safeFilename}`,
-      fileFormat: ext as FileFormat,
+      fileFormat,
       fileSizeBytes: file.size,
       description,
       uploadedBy: undefined, // Could be populated from auth session

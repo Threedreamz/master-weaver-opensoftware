@@ -1,8 +1,11 @@
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Settings } from "lucide-react";
 import { PipelineNav } from "@/components/pipeline/PipelineNav";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
+import { NotificationBell } from "@/components/kanban/NotificationBell";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +42,7 @@ export default async function PipelinePage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <PipelineNav breadcrumb={breadcrumb} />
 
       {/* Pipeline header */}
@@ -52,6 +55,16 @@ export default async function PipelinePage({ params }: Props) {
           <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 capitalize">
             {pipeline.status}
           </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/pipelines/${pipeline.id}/einstellungen`}
+            className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            title="Einstellungen"
+          >
+            <Settings className="w-5 h-5" />
+          </Link>
+          <NotificationBell />
         </div>
       </div>
 

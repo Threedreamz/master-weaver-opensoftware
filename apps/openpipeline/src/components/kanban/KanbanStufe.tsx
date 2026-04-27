@@ -1,8 +1,9 @@
 "use client";
 
 import { Droppable } from "@hello-pangea/dnd";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, GripVertical, Plus } from "lucide-react";
 import type { Stufe, Karte } from "@opensoftware/db/openpipeline";
+import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import { KanbanKarte } from "./KanbanKarte";
 
 interface KanbanStufeProps {
@@ -11,6 +12,7 @@ interface KanbanStufeProps {
   onKarteKlick: (karte: Karte) => void;
   onNeueKarte: (stufeId: string) => void;
   onSubPipelineKlick?: (subPipelineId: string) => void;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
 }
 
 export function KanbanStufe({
@@ -19,15 +21,17 @@ export function KanbanStufe({
   onKarteKlick,
   onNeueKarte,
   onSubPipelineKlick,
+  dragHandleProps,
 }: KanbanStufeProps) {
   const kartenCount = karten.length;
   const wipWarning = stufe.wipLimit && kartenCount >= stufe.wipLimit;
 
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[320px] bg-zinc-900 rounded-xl">
+    <div className="flex flex-col min-w-[280px] max-w-[320px] bg-zinc-900 rounded-xl h-full max-h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800" {...dragHandleProps}>
         <div className="flex items-center gap-2">
+          <GripVertical className="w-3 h-3 text-zinc-600 cursor-grab" />
           {stufe.farbe && (
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stufe.farbe }} />
           )}

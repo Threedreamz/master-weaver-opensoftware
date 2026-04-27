@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/openpipeline/Dockerfile"
+watchPatterns = [
+  "apps/openpipeline/**",
+  "packages/db/**",
+  "packages/config/**",
+  "packages/ui/**",
+]

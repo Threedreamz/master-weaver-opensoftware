@@ -12,7 +12,7 @@ export interface RendererState {
   isSubmitting: boolean;
   isCompleted: boolean;
 
-  initFlow: (flow: FlowDefinition) => void;
+  initFlow: (flow: FlowDefinition, initialStepId?: string) => void;
   setAnswer: (fieldKey: string, value: unknown) => void;
   setPhoneValid: (fieldKey: string, valid: boolean) => void;
   goToStep: (stepId: string) => void;
@@ -35,7 +35,7 @@ export const useRendererStore = create<RendererState>((set, get) => ({
   isSubmitting: false,
   isCompleted: false,
 
-  initFlow: (flow) => {
+  initFlow: (flow, initialStepId) => {
     // Resolve the first displayable step: skip "start"/"end" placeholder steps
     let startId = flow.startStepId;
     const startStep = flow.steps.find((s) => s.id === startId);
@@ -43,11 +43,16 @@ export const useRendererStore = create<RendererState>((set, get) => ({
       const firstReal = flow.steps.find((s) => s.type !== "start" && s.type !== "end");
       startId = firstReal?.id ?? startId;
     }
+    // If a specific initial step is requested and valid, start there
+    const validInitial = initialStepId
+      ? flow.steps.find((s) => s.id === initialStepId && s.type !== "start" && s.type !== "end")
+      : undefined;
+    const targetId = validInitial ? initialStepId! : startId;
     set({
       flowDefinition: flow,
-      currentStepId: startId,
+      currentStepId: targetId,
       answers: {},
-      navigationHistory: startId ? [startId] : [],
+      navigationHistory: targetId ? [targetId] : [],
       errors: {},
       phoneValidity: {},
       submissionId: null,

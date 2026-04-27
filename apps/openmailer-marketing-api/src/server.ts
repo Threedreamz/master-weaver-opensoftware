@@ -6,6 +6,8 @@ import { errorHandler } from "./middleware/error.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { workspaceMiddleware } from "./middleware/workspace.js";
 import { healthRoutes } from "./routes/health.js";
+import { appstoreManifestRoutes } from "./routes/appstore-manifest.js";
+import { canonicalEventsRoutes } from "./routes/canonical-events.js";
 import { contactRoutes } from "./routes/contacts.js";
 import { segmentRoutes } from "./routes/segments.js";
 import { tagRoutes } from "./routes/tags.js";
@@ -41,7 +43,10 @@ app.onError(errorHandler);
 // Public routes (no auth, no workspace)
 // ------------------------------------------------------------------
 app.route("/api/health", healthRoutes);
+app.route("/api/appstore/manifest", appstoreManifestRoutes);
 app.route("/api/tracking", trackingRoutes);
+// openpipeline subscriber endpoint — authed via HMAC signature, not workspace.
+app.route("/api/canonical-events", canonicalEventsRoutes);
 
 // Forms have mixed auth: CRUD is protected, but /:id/submit is public.
 // The formRoutes file applies auth+workspace per-handler where needed.

@@ -63,6 +63,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4175
 ENV HOSTNAME=0.0.0.0
+# SQLite file on Railway volume mount — volume is mounted at /app/data.
+# Railway sets DATABASE_URL separately if configured; this is the default.
+ENV DATABASE_URL=/app/data/openslicer.db
+# Runtime migration folder (src/instrumentation.ts reads this).
+ENV OPENSLICER_MIGRATIONS_DIR=/app/apps/openslicer/drizzle/migrations
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
@@ -75,6 +80,10 @@ COPY --from=builder /app/apps/openslicer/public ./apps/openslicer/public
 
 # Copy generated SQL migration files for runtime instrumentation.ts
 COPY --from=builder /app/apps/openslicer/drizzle /app/apps/openslicer/drizzle
+
+# Copy hand-rolled one-shot migration SQL scripts (e.g. drop-history-profile-fk)
+# used by instrumentation.ts outside the drizzle-kit migration pipeline.
+COPY --from=builder /app/apps/openslicer/scripts /app/apps/openslicer/scripts
 
 # Copy better-sqlite3 native module for runtime
 COPY --from=builder /tmp/runtime-node-modules/ /app/node_modules/

@@ -1,0 +1,29 @@
+id: photoroom-background
+provider: photoroom.com
+providerName: PhotoRoom
+stability: experimental
+stabilityNote: >
+  Placeholder — the PhotoRoom API integration has not been built or
+  credential-tested yet. API shape and scopes may change.
+
+endpoint: https://image-api.photoroom.com/v2/edit
+authMode: apiKey
+inputs:
+  - image/jpeg
+  - image/png
+  - image/webp
+outputs:
+  - image/png
+  - image/webp
+billing: perJob
+perJobPriceCents: 8
+timeout: 30000
+
+description: >
+  Remove or replace backgrounds on product photos using PhotoRoom's
+  AI pipeline. Pairs with scanned or catalog-imported photos to clean
+  them up for PDP use.
+
+website: https://www.photoroom.com/api
+logo: https://www.photoroom.com/favicon-128.png
+tags: [enhancement, photo, background-removal, cleanup]

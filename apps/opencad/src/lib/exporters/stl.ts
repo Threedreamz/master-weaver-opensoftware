@@ -1,0 +1,109 @@
+/**
+ * opencad — STL exporter (M1)
+ *
+ * Evaluates the project's feature tree, tessellates the final geometry via
+ * the cad-kernel, and streams the STL bytes back to the API route. Never
+ * buffers the whole file in memory — the BufferGeometry is tessellated and
+ * serialised in chunks via a ReadableStream pull() pump.
+ *
+ * Consumers: `app/api/projects/[id]/export/[format]/route.ts` (format=stl).
+ *
+ * Contract:
+ *   exportProjectSTL(projectId, { binary, tessellation }) →
+ *     { stream: ReadableStream<Uint8Array>, filename, triangleCount, sizeBytes }
+ *
+ * Depends on (injected at runtime — see `cad-kernel.ts` and `geometry-cache.ts`):
+ *   - kernel.evaluateProject(projectId, { tessellation }) → BufferGeometry
+ *   - kernel.exportSTL(geometry, binary) → Uint8Array
+ */
+import * as THREE from "three";
+import { evaluateProject } from "../feature-timeline";
+import { exportSTL as kernelExportSTL } from "../cad-kernel";
+
+type Tessellation = "coarse" | "normal" | "fine";
+
+export interface ExportSTLOptions {
+  binary?: boolean;
+  tessellation: Tessellation;
+  /**
+   * Optional version pin — if omitted the current head version is evaluated.
+   * Surfaced here so the handoff path can deterministically export a snapshot.
+   */
+  versionId?: string;
+}
+
+export interface ExportSTLResult {
+  stream: ReadableStream<Uint8Array>;
+  filename: string;
+  triangleCount: number;
+  sizeBytes: number;
+}
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+}
+
+function countTriangles(geometry: THREE.BufferGeometry): number {
+  const index = geometry.getIndex();
+  if (index) return Math.floor(index.count / 3);
+  const pos = geometry.getAttribute("position");
+  if (!pos) return 0;
+  return Math.floor(pos.count / 3);
+}
+
+/**
+ * Evaluate feature tree → tessellate → serialise to STL bytes → stream.
+ *
+ * The serialised Uint8Array is enqueued in ~1MB chunks so the API route can
+ * back-pressure without holding the whole buffer in a single enqueue.
+ */
+export async function exportProjectSTL(
+  projectId: string,
+  opts: ExportSTLOptions,
+): Promise<ExportSTLResult> {
+  const { binary = true, tessellation, versionId } = opts;
+
+  const geometry = await evaluateProject(projectId, { tessellation, versionId });
+  const triangleCount = countTriangles(geometry);
+  const bytes = kernelExportSTL(geometry, binary);
+  const sizeBytes = bytes.byteLength;
+  const filename = sanitizeFilename(`opencad-${projectId}${versionId ? `-${versionId}` : ""}.stl`);
+
+  const CHUNK = 1 << 20; // 1 MiB
+  let offset = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= bytes.byteLength) {
+        controller.close();
+        return;
+      }
+      const end = Math.min(offset + CHUNK, bytes.byteLength);
+      // Slice creates a view; copy into a fresh Uint8Array so the consumer
+      // can't accidentally mutate the underlying buffer.
+      controller.enqueue(new Uint8Array(bytes.subarray(offset, end)));
+      offset = end;
+    },
+    cancel() {
+      offset = bytes.byteLength;
+    },
+  });
+
+  return { stream, filename, triangleCount, sizeBytes };
+}
+
+/**
+ * Internal helper for the handoff path — returns the raw bytes + metadata
+ * without wrapping in a stream. Used when we need to build a FormData body
+ * for the openslicer upload (FormData needs a Blob, not a stream).
+ */
+export async function exportProjectSTLBytes(
+  projectId: string,
+  opts: ExportSTLOptions,
+): Promise<{ bytes: Uint8Array; filename: string; triangleCount: number; sizeBytes: number }> {
+  const { binary = true, tessellation, versionId } = opts;
+  const geometry = await evaluateProject(projectId, { tessellation, versionId });
+  const triangleCount = countTriangles(geometry);
+  const bytes = kernelExportSTL(geometry, binary);
+  const filename = sanitizeFilename(`opencad-${projectId}${versionId ? `-${versionId}` : ""}.stl`);
+  return { bytes, filename, triangleCount, sizeBytes: bytes.byteLength };
+}

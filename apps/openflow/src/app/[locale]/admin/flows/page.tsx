@@ -7,6 +7,8 @@ import { eq, sql } from "drizzle-orm";
 import { DeleteFlowButton } from "./DeleteFlowButton";
 import { FlowActions } from "./FlowActions";
 import { FlowPreview } from "./FlowPreview";
+import { AIFlowButton } from "./AIFlowButton";
+import { FlowNameEditor } from "./FlowNameEditor";
 
 interface FlowsPageProps {
   params: Promise<{ locale: string }>;
@@ -62,13 +64,16 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
           <h1 className="text-2xl font-bold text-gray-900">Flows</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your multi-step flows</p>
         </div>
-        <Link
-          href={`/${locale}/admin/flows/new`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          <span>+</span>
-          New Flow
-        </Link>
+        <div className="flex items-center gap-2">
+          <AIFlowButton locale={locale} />
+          <Link
+            href={`/${locale}/admin/flows/new`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <span>+</span>
+            New Flow
+          </Link>
+        </div>
       </div>
 
       {flowsList.length === 0 ? (
@@ -119,7 +124,7 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
                 {/* Metadaten */}
                 <div className="mt-2.5 px-0.5">
                   <div className="flex items-start justify-between gap-1">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{flow.name}</p>
+                    <FlowNameEditor flowId={flow.id} initialName={flow.name} />
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <StatusBadge status={flow.status} />

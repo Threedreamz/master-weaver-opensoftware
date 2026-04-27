@@ -1,0 +1,54 @@
+{
+  "name": "@opensoftware/opencam-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo --port 4176",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.1",
+    "@opensoftware/config": "workspace:*",
+    "@opensoftware/db": "workspace:*",
+    "@opensoftware/shared": "workspace:*",
+    "@opensoftware/ui": "workspace:*",
+    "@react-three/drei": "^10.0.0",
+    "@react-three/fiber": "^9.1.0",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.176.0",
+    "better-sqlite3": "^12.6.2",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.0",
+    "lucide-react": "^0.576.0",
+    "next": "^16.1.6",
+    "next-auth": "^5.0.0-beta.30",
+    "postcss": "^8.5.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.1",
+    "three": "^0.176.0",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.11"
+  },
+  "optionalDependencies": {
+    "jscut": "^0.1.0"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "drizzle-kit": "^0.31.9",
+    "tsx": "^4.21.0",
+    "vitest": "^3.2.4"
+  }
+}

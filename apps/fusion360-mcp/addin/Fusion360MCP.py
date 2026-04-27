@@ -19,6 +19,10 @@ import threading
 import queue
 import json
 import traceback
+import os
+import subprocess
+import shutil
+import tempfile
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ── Constants ─────────────────────────────────────────────────────────────
@@ -389,6 +393,113 @@ def h_undo(body):
     return run_on_main_thread(_do)
 
 
+def h_import_stl(body):
+    """Import an STL file into the active design as a mesh body."""
+    stl_path = body.get('stl_path', '')
+    body_name = body.get('body_name', '')
+
+    if not stl_path or not os.path.isfile(stl_path):
+        raise FileNotFoundError(f'STL file not found: {stl_path}')
+
+    def _do():
+        design = _app.activeProduct
+        if not design or not isinstance(design, adsk.fusion.Design):
+            raise RuntimeError('No active Fusion design. Open or create a design first.')
+
+        import_manager = _app.importManager
+        stl_options = import_manager.createSTLImportOptions(stl_path)
+        stl_options.isViewFit = False
+        stl_options.isSolid = True
+
+        root = design.rootComponent
+        mesh_bodies = import_manager.importToTarget(stl_options, root)
+
+        if body_name and mesh_bodies and mesh_bodies.count > 0:
+            mesh_bodies.item(0).name = body_name
+
+        imported_name = mesh_bodies.item(0).name if (mesh_bodies and mesh_bodies.count > 0) else 'imported'
+        return {'ok': True, 'body_name': imported_name, 'stl_path': stl_path}
+
+    return run_on_main_thread(_do)
+
+
+def _find_openscad() -> str:
+    """Locate the OpenSCAD executable.
+
+    On macOS the Homebrew-cask wrapper at /opt/homebrew/bin/openscad opens a
+    GUI window and hangs when called from a subprocess.  Prefer the app-bundle
+    binary which runs correctly in headless CLI mode.
+    """
+    candidates = [
+        '/opt/homebrew/Caskroom/openscad/2021.01/OpenSCAD-2021.01.app/Contents/MacOS/OpenSCAD',
+        '/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD',
+    ]
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    found = shutil.which('openscad')
+    if found:
+        return found
+    raise RuntimeError(
+        'OpenSCAD CLI not found. Install from https://openscad.org/downloads.html'
+    )
+
+
+def h_import_scad(body):
+    """Render a .scad file to STL via the OpenSCAD CLI, then import into Fusion 360."""
+    scad_path = body.get('scad_path', '')
+    body_name = body.get('body_name', '')
+    param_overrides: dict = body.get('parameter_overrides', {})
+
+    if not scad_path or not os.path.isfile(scad_path):
+        raise FileNotFoundError(f'OpenSCAD file not found: {scad_path}')
+
+    openscad = _find_openscad()
+
+    # Write parameter-patched SCAD to a temp file if overrides are set
+    with tempfile.NamedTemporaryFile(suffix='.scad', delete=False, mode='w', encoding='utf-8') as tmp_scad:
+        tmp_scad_path = tmp_scad.name
+        if param_overrides:
+            with open(scad_path, 'r', encoding='utf-8') as f:
+                original = f.read()
+            overrides = '\n'.join(f'{k} = {v};' for k, v in param_overrides.items())
+            tmp_scad.write(overrides + '\n\n' + original)
+        else:
+            import shutil as _shutil
+            _shutil.copy(scad_path, tmp_scad_path)
+
+    with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as tmp_stl:
+        tmp_stl_path = tmp_stl.name
+
+    try:
+        result = subprocess.run(
+            [openscad, '-o', tmp_stl_path, tmp_scad_path],
+            capture_output=True,
+            text=True,
+            timeout=body.get('timeout', 60),
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f'OpenSCAD render failed (exit {result.returncode}).\n'
+                f'stderr: {result.stderr.strip()}'
+            )
+
+        import_result = h_import_stl({
+            'stl_path': tmp_stl_path,
+            'body_name': body_name or os.path.splitext(os.path.basename(scad_path))[0],
+        })
+        import_result['scad_path'] = scad_path
+        import_result['parameter_overrides'] = param_overrides
+        return import_result
+
+    finally:
+        for p in (tmp_stl_path, tmp_scad_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
 # ── Route table ───────────────────────────────────────────────────────────
 
 ROUTES = {
@@ -407,6 +518,8 @@ ROUTES = {
     '/fusion/export_stl':       h_export_stl,
     '/fusion/export_step':      h_export_step,
     '/fusion/undo':             h_undo,
+    '/fusion/import_stl':       h_import_stl,
+    '/fusion/import_scad':      h_import_scad,
 }
 
 

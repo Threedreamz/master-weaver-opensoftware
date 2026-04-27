@@ -27,13 +27,20 @@ export class LRPManager extends EventEmitter {
 
   constructor(runtimePath?: string) {
     super();
-    this.runtimePath = runtimePath ?? resolve(import.meta.dirname, '../../runtimes/open3d-python/main.py');
+    // src/ → open3d-api/ → apps/ → project-root → runtimes/
+    this.runtimePath = runtimePath ?? resolve(import.meta.dirname, '../../../runtimes/open3d-python/main.py');
   }
 
   async start(): Promise<void> {
     if (this.process) return;
 
-    this.process = spawn('python3', [this.runtimePath], {
+    // Use venv python if available (has trimesh, numpy, etc.)
+    const runtimeDir = resolve(this.runtimePath, '..');
+    const venvPython = resolve(runtimeDir, '.venv', 'bin', 'python3');
+    const { existsSync } = await import('node:fs');
+    const pythonBin = existsSync(venvPython) ? venvPython : 'python3';
+
+    this.process = spawn(pythonBin, [this.runtimePath], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: resolve(this.runtimePath, '..', '..', '..'),
     });
@@ -104,7 +111,13 @@ export class LRPManager extends EventEmitter {
         else resolve(resp.result);
       }, reject, timer });
 
-      this.process!.stdin!.write(JSON.stringify(request) + '\n');
+      if (!this.process?.stdin) {
+        clearTimeout(timer);
+        this.pendingRequests.delete(id);
+        reject(new Error('LRP process is not running'));
+        return;
+      }
+      this.process.stdin.write(JSON.stringify(request) + '\n');
     });
   }
 
