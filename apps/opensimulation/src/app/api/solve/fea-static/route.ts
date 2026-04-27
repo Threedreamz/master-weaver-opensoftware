@@ -31,7 +31,7 @@ function tetMeshFromInline(inline: { vertices: number[]; tets: number[] }): TetM
 /**
  * Resolve meshId → TetMesh by reading opensimulationMeshes.storageKey.
  * M1 storage protocol: if storageKey starts with "inline:" the suffix is a
- * JSON-encoded `{ vertices, tets }`. Real blob storage (R2, S3) is M2.
+ * base64-encoded JSON `{ vertices, tets }`. Real blob storage (R2, S3) is M2.
  */
 async function tetMeshFromMeshId(meshId: string): Promise<TetMesh> {
   const [row] = await db
@@ -48,7 +48,9 @@ async function tetMeshFromMeshId(meshId: string): Promise<TetMesh> {
   }
   let parsed: { vertices: number[]; tets: number[] };
   try {
-    parsed = JSON.parse(row.storageKey.slice("inline:".length));
+    const encoded = row.storageKey.slice("inline:".length);
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    parsed = JSON.parse(decoded);
   } catch (e) {
     throw new SolverError("BAD_INPUT", `mesh ${meshId} inline payload invalid JSON`);
   }
