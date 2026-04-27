@@ -62,8 +62,14 @@ let cachedJscut: JscutLib | null | undefined = undefined;
 export function loadJscut(): JscutLib | null {
   if (cachedJscut !== undefined) return cachedJscut;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("jscut") as JscutLib;
+    // jscut is in optionalDependencies and may not resolve in production builds.
+    // Use an indirect require so Turbopack/webpack don't try to statically
+    // resolve the module at build time (which fails the build with
+    // `Module not found: Can't resolve 'jscut'`). Indirect eval hides the
+    // require call from the bundler's static analyzer; only the runtime sees it.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+    const dynRequire = new Function("m", "return require(m)") as (m: string) => unknown;
+    const mod = dynRequire("jscut") as JscutLib;
     cachedJscut = mod;
     return mod;
   } catch {

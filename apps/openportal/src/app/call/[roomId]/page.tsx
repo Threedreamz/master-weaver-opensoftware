@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type BgMode = "none" | "blur" | "image";
@@ -21,8 +22,19 @@ interface JitsiApi {
   addEventListener: (ev: string, handler: (...args: unknown[]) => void) => void;
 }
 
-const JITSI_DOMAIN = "meet.jit.si";
-const JITSI_API_SRC = `https://${JITSI_DOMAIN}/external_api.js`;
+// Jitsi server. Default: framatalk.org (Framasoft NGO, no moderator-auth
+// policy as of last check — verified reachable by curl probe).
+// Override via NEXT_PUBLIC_JITSI_BASE_URL env var (build-time only, requires
+// rebuild on Railway after change). Examples:
+//   https://meet.jit.si       — biggest server, REQUIRES Google/etc. login as moderator
+//   https://framatalk.org     — Framasoft NGO (FR), reachable, no moderator login (verified 2026-04)
+//   https://meet.guifi.net    — Guifi.net Spanish community (less battle-tested)
+// (meet.calyx.net is dead as of 2026-04 — DNS does not resolve.)
+const JITSI_BASE_URL = (
+  process.env.NEXT_PUBLIC_JITSI_BASE_URL ?? "https://framatalk.org"
+).replace(/\/$/, "");
+const JITSI_DOMAIN = JITSI_BASE_URL.replace(/^https?:\/\//, "");
+const JITSI_API_SRC = `${JITSI_BASE_URL}/external_api.js`;
 
 let scriptPromise: Promise<void> | null = null;
 function loadJitsiScript(): Promise<void> {
@@ -45,6 +57,7 @@ function loadJitsiScript(): Promise<void> {
 
 export default function CallPage() {
   const params = useParams<{ roomId: string }>();
+  const { data: session } = useSession();
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<JitsiApi | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +71,16 @@ export default function CallPage() {
 
   const safeRoom = (params?.roomId ?? "").replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 80);
   const roomName = `openportal-${safeRoom}`;
+
+  // Capture session at mount-time so signing in/out mid-call doesn't
+  // re-instantiate the iframe (which would drop everyone from the call).
+  const userInfoRef = useRef<{ displayName?: string; email?: string } | null>(null);
+  if (userInfoRef.current === null && session?.user) {
+    userInfoRef.current = {
+      displayName: session.user.name ?? undefined,
+      email: session.user.email ?? undefined,
+    };
+  }
 
   // Mount Jitsi External API once per room
   useEffect(() => {
@@ -73,6 +96,7 @@ export default function CallPage() {
           parentNode: containerRef.current,
           width: "100%",
           height: "100%",
+          userInfo: userInfoRef.current ?? undefined,
           configOverwrite: {
             prejoinPageEnabled: true,
             disableDeepLinking: true,
@@ -220,11 +244,15 @@ export default function CallPage() {
         </div>
       ) : !scriptLoaded ? (
         <div className="border-b border-[#27272a] bg-[#18181b] px-4 py-1.5 text-xs text-zinc-500">
-          Loading Jitsi…
+          Loading Jitsi from {JITSI_DOMAIN}…
         </div>
       ) : !ready ? (
         <div className="border-b border-[#27272a] bg-[#18181b] px-4 py-1.5 text-xs text-zinc-500">
-          Background controls activate once you join the call.
+          Background controls activate once you join. If Jitsi shows
+          {" "}
+          <span className="text-zinc-300">&ldquo;asking to join meeting&rdquo;</span>,
+          click <span className="text-zinc-300">Log-in</span> in that screen once &mdash;
+          this is anti-abuse moderator auth (one time per browser).
         </div>
       ) : null}
 

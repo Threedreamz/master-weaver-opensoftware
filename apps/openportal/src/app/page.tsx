@@ -1,17 +1,23 @@
 import Link from "next/link";
+import { UserChip } from "@/components/UserChip";
 
 export default function HomePage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
-      <div className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
-        OpenSoftware
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+            OpenSoftware
+          </div>
+          <h1 className="mt-2 text-4xl font-semibold text-[var(--text-primary)]">
+            OpenPortal
+          </h1>
+          <p className="mt-3 max-w-md text-sm text-[var(--text-secondary)]">
+            Team and organization portal for the OpenSoftware ecosystem.
+          </p>
+        </div>
+        <UserChip />
       </div>
-      <h1 className="mt-2 text-4xl font-semibold text-[var(--text-primary)]">
-        OpenPortal
-      </h1>
-      <p className="mt-3 max-w-md text-sm text-[var(--text-secondary)]">
-        Team and organization portal for the OpenSoftware ecosystem.
-      </p>
 
       <section className="mt-12 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-6">
         <h2 className="text-base font-medium text-[var(--text-primary)]">

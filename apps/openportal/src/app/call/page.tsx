@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { UserChip } from "@/components/UserChip";
 
 function randomRoom() {
   const adjectives = ["calm", "bright", "swift", "quiet", "warm", "bold", "sharp"];
@@ -24,8 +25,11 @@ export default function CallLanding() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <div className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
-        OpenSoftware &middot; OpenPortal
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+          OpenSoftware &middot; OpenPortal
+        </div>
+        <UserChip />
       </div>
       <h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
         Join a call
@@ -57,14 +61,20 @@ export default function CallLanding() {
       <p className="mt-6 text-xs text-[var(--text-muted)]">
         Calls run on{" "}
         <a
-          href="https://meet.jit.si"
+          href="https://framatalk.org"
           target="_blank"
           rel="noreferrer"
           className="underline underline-offset-2 hover:text-[var(--text-secondary)]"
         >
-          meet.jit.si
+          framatalk.org
         </a>{" "}
-        &mdash; public Jitsi rooms. Use a hard-to-guess name; anyone with the link can join.
+        (open Jitsi by Framasoft). Anyone with the link can join &mdash; use a hard-to-guess
+        room name.
+      </p>
+      <p className="mt-2 text-xs text-[var(--text-muted)]">
+        First time? If you see &ldquo;asking to join meeting&rdquo;, click{" "}
+        <span className="text-[var(--text-secondary)]">Log-in</span> on the Jitsi screen
+        once &mdash; that grants you moderator status (one-time per browser, anti-abuse).
       </p>
 
       <Link
