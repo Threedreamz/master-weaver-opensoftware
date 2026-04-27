@@ -25,7 +25,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { opensimulationProjects, opensimulationMeshes } from "@opensoftware/db/opensimulation";
@@ -43,9 +42,9 @@ const MAX_INLINE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /* -------------------------------------------------------------- request shape */
 
-const RequestBody = ImportOpenCadBody.extend({
-  projectId: z.string().min(1),
-});
+// `projectId` lives on the canonical schema now (see api-contracts.ts) — the
+// previous `.extend({ projectId })` was a workaround for a missing field.
+const RequestBody = ImportOpenCadBody;
 
 /* -------------------------------------------------------- binary STL parser */
 
@@ -133,7 +132,12 @@ export async function POST(req: NextRequest) {
     if (!project) {
       return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
     }
-    if (auth.via === "session" && project.userId !== auth.userId) {
+    // Ownership check: enforce for sessions AND for api-key calls that carry
+    // x-hub-user-id (auth-helpers sets userId to the hub user when the header
+    // is present, falling back to "service" only for trusted server-to-server
+    // calls without a user identity). Otherwise any caller with the shared
+    // OPENSOFTWARE_API_KEY could import meshes into any user's project.
+    if (auth.userId !== "service" && project.userId !== auth.userId) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 

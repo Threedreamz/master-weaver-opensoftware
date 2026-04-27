@@ -65,6 +65,7 @@ import { mirror } from "./ops/mirror";
 import { transform as transformOp } from "./ops/transform";
 import { group as groupOp } from "./ops/group";
 import { brepFillet, brepChamfer, brepShell, brepDraft } from "./brep/replicad-wrapper";
+import { readImportedBody } from "./imported-body-storage";
 
 type FeatureEvaluateResponse = z.infer<typeof FeatureEvaluateResponseSchema>;
 type BBox = z.infer<typeof BBoxSchema>;
@@ -440,6 +441,20 @@ async function evaluateFeature(
         },
         { keepOriginal: params.keepOriginal !== false },
       );
+      break;
+    }
+
+    /* -------------------------------------------------------- import */
+    case "import": {
+      // Imported bodies are roots — no parents. Geometry was persisted to disk
+      // by the import-handler; load it back into a SolidResult here. Errors
+      // (missing file, malformed JSON) bubble up as per-feature errors so the
+      // rest of the timeline keeps evaluating.
+      const importedBodyId = params.importedBodyId;
+      if (typeof importedBodyId !== "string" || !importedBodyId) {
+        throw new Error(`import: missing or invalid importedBodyId param`);
+      }
+      solid = readImportedBody(importedBodyId);
       break;
     }
 

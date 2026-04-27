@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 type Domain = {
   slug: string;
   title: string;
@@ -16,26 +14,55 @@ const DOMAINS: Domain[] = [
   { slug: "cleaning", title: "Cleaning", blurb: "Ultrasonic + CIP cleaning-cycle simulation.", status: "ready" },
 ];
 
+// The opensimulation service is hub-proxied — interactive workbench lives in the
+// 3Dreamz hub at /tools/sim. The standalone root page is informational only:
+// listing per-user projects requires auth context the standalone shell doesn't
+// have, and the previous /admin/simulation/<slug> nav cards pointed at routes
+// that have never existed. Replace with a status board + clear pointer to the
+// hub UI so the page is no longer a dead-end.
 export default function RootPage() {
   return (
-    <main className="max-w-5xl mx-auto px-6 py-12">
-      <h1 className="text-4xl font-semibold tracking-tight">OpenSimulation</h1>
-      <p className="mt-2 text-neutral-400">Physics + kinematics simulation service</p>
-      <section className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <main className="max-w-5xl mx-auto px-6 py-12 text-neutral-200 bg-neutral-950 min-h-screen">
+      <div className="text-xs tracking-wider text-neutral-500 uppercase">
+        Service · OpenSimulation
+      </div>
+      <h1 className="mt-2 text-4xl font-semibold tracking-tight">OpenSimulation</h1>
+      <p className="mt-2 text-neutral-400">
+        Physics + kinematics simulation backend. The interactive workbench is
+        served via the 3Dreamz hub.
+      </p>
+
+      <div className="mt-6 rounded-lg border border-amber-700/40 bg-amber-900/10 p-5 text-sm">
+        <div className="font-medium text-amber-300">Open the workbench</div>
+        <p className="mt-1 text-neutral-300">
+          OpenSimulation is hub-proxied. Sign in at the 3Dreamz hub and open
+          <span className="font-mono text-amber-300"> /tools/sim</span> to
+          create a project and run a solve. Direct API access is documented at
+          <span className="font-mono text-amber-300"> /api/health</span>.
+        </p>
+      </div>
+
+      <h2 className="mt-12 text-xl font-medium">Available solver domains</h2>
+      <section className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {DOMAINS.map((d) => (
-          <Link
+          <div
             key={d.slug}
-            href={`/admin/simulation/${d.slug}`}
-            className="block rounded-lg border border-neutral-800 bg-neutral-900/50 p-5 hover:border-neutral-700 transition-colors"
+            className="block rounded-lg border border-neutral-800 bg-neutral-900/50 p-5"
           >
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">{d.title}</h2>
-              {d.status === "planned" && (
-                <span className="text-xs rounded bg-neutral-800 px-2 py-0.5 text-neutral-400">planned</span>
-              )}
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-medium">{d.title}</h3>
+              <span
+                className={
+                  d.status === "ready"
+                    ? "text-xs rounded bg-emerald-900/40 px-2 py-0.5 text-emerald-300"
+                    : "text-xs rounded bg-neutral-800 px-2 py-0.5 text-neutral-400"
+                }
+              >
+                {d.status}
+              </span>
             </div>
             <p className="mt-2 text-sm text-neutral-400">{d.blurb}</p>
-          </Link>
+          </div>
         ))}
       </section>
     </main>

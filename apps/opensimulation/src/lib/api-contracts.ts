@@ -291,8 +291,13 @@ export type SolveThermalSteadyResponse = z.infer<typeof SolveThermalSteadyRespon
 
 /* ============================================ integration imports (session-or-api-key) */
 
-/* POST /api/opencad/import — session-or-api-key */
+/* POST /api/opencad/import — session-or-api-key.
+ * `projectId` is the destination opensimulation project; `openCadProjectId` is
+ * the upstream opencad project we pull geometry from. Both are required —
+ * leaving `projectId` out of the exported schema previously caused hub clients
+ * to send malformed bodies and receive 400 INVALID_BODY at runtime. */
 export const ImportOpenCadBody = z.object({
+  projectId: z.string().min(1),
   openCadProjectId: z.string(),
   versionId: z.string().optional(),
   tessellation: z.enum(["coarse", "normal", "fine"]).default("normal"),

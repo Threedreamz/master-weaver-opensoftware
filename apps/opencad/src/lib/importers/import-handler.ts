@@ -24,6 +24,7 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
+import * as THREE from "three";
 import { and, eq, isNull, desc } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ImportFormat } from "@/lib/api-contracts";
@@ -31,6 +32,7 @@ import { importSTL } from "@/lib/importers/stl";
 import { import3MF } from "@/lib/importers/threemf";
 import { importSTEP } from "@/lib/importers/step";
 import { resolveUser } from "@/lib/internal-user";
+import { writeImportedBody } from "@/lib/imported-body-storage";
 
 export const MAX_UPLOAD_BYTES = (() => {
   const raw = process.env.MAX_UPLOAD_BYTES;
@@ -221,21 +223,32 @@ export async function handleImport(
     const cappedStream = capStream(fileStream, MAX_UPLOAD_BYTES);
     const result = await runImporter(format, cappedStream, filename);
 
-    // Persist the imported body (metadata only; actual mesh bytes live in the
-    // feature graph / geometry cache — not in the DB row).
-    const storageKey = `opencad/imports/${project.id}/${Date.now()}-${filename}`;
+    // 1. Insert the imported-body row first so we have a stable id for the
+    //    on-disk filename. We update storageKey in step 2 once geometry is
+    //    persisted — the placeholder is only ever visible inside this txn.
     const [imported] = await db
       .insert(schema.opencadImportedBodies)
       .values({
         projectId: project.id,
         sourceFormat: format as "step" | "iges" | "stl" | "obj" | "3mf" | "brep",
         originalFilename: filename,
-        storageKey,
+        storageKey: "pending",
       })
       .returning({ id: schema.opencadImportedBodies.id });
 
-    // Create a feature node of kind=boolean referencing the imported body, so
-    // the feature timeline can treat it as any other geometry input.
+    // 2. Persist the geometry to disk. `result.geometry` is a
+    //    THREE.BufferGeometry from the importer. The storageKey we record is
+    //    a relative path under the data dir so dev/prod paths can differ.
+    const geometry = result.geometry as THREE.BufferGeometry;
+    const stored = writeImportedBody(imported.id, geometry);
+    await db
+      .update(schema.opencadImportedBodies)
+      .set({ storageKey: stored.storageKey })
+      .where(eq(schema.opencadImportedBodies.id, imported.id));
+
+    // 3. Create a feature node of kind="import" so the feature timeline can
+    //    pick the imported body up as a leaf solid. Empty parentIds — imports
+    //    are roots, they don't depend on prior features.
     const [last] = await db
       .select({ order: schema.opencadFeatures.order })
       .from(schema.opencadFeatures)
@@ -248,9 +261,8 @@ export async function handleImport(
       .insert(schema.opencadFeatures)
       .values({
         projectId: project.id,
-        kind: "boolean",
+        kind: "import",
         paramsJson: {
-          op: "union",
           importedBodyId: imported.id,
           sourceFormat: format,
           originalFilename: filename,

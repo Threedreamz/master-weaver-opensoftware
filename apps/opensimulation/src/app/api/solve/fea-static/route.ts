@@ -8,54 +8,10 @@ import { requireSessionOrApiKey } from "@/lib/auth-helpers";
 import { SolveFeaStaticBody } from "@/lib/api-contracts";
 import {
   SolverError,
-  bboxOfVertices,
   type BoundaryCondition,
-  type TetMesh,
 } from "@/lib/kernel-types";
 import { solveFeaStatic } from "@/lib/solvers/fea-static";
-
-/**
- * Build a TetMesh from an inline `{ vertices: number[], tets: number[] }` —
- * the request shape from SolveFeaStaticBody.mesh. Re-packs into the canonical
- * Float32Array/Uint32Array containers the solver expects.
- */
-function tetMeshFromInline(inline: { vertices: number[]; tets: number[] }): TetMesh {
-  if (inline.vertices.length === 0 || inline.tets.length === 0) {
-    throw new SolverError("BAD_INPUT", "mesh has empty vertices or tets array");
-  }
-  const vertices = Float32Array.from(inline.vertices);
-  const tets = Uint32Array.from(inline.tets);
-  return { vertices, tets, bbox: bboxOfVertices(vertices) };
-}
-
-/**
- * Resolve meshId → TetMesh by reading opensimulationMeshes.storageKey.
- * M1 storage protocol: if storageKey starts with "inline:" the suffix is a
- * base64-encoded JSON `{ vertices, tets }`. Real blob storage (R2, S3) is M2.
- */
-async function tetMeshFromMeshId(meshId: string): Promise<TetMesh> {
-  const [row] = await db
-    .select()
-    .from(schema.opensimulationMeshes)
-    .where(eq(schema.opensimulationMeshes.id, meshId))
-    .limit(1);
-  if (!row) throw new SolverError("BAD_INPUT", `mesh ${meshId} not found`);
-  if (row.kind !== "tet") {
-    throw new SolverError("BAD_INPUT", `mesh ${meshId} is ${row.kind}, expected tet`);
-  }
-  if (!row.storageKey.startsWith("inline:")) {
-    throw new SolverError("BAD_INPUT", `mesh ${meshId} storage ${row.storageKey} not supported in M1`);
-  }
-  let parsed: { vertices: number[]; tets: number[] };
-  try {
-    const encoded = row.storageKey.slice("inline:".length);
-    const decoded = Buffer.from(encoded, "base64").toString("utf8");
-    parsed = JSON.parse(decoded);
-  } catch (e) {
-    throw new SolverError("BAD_INPUT", `mesh ${meshId} inline payload invalid JSON`);
-  }
-  return tetMeshFromInline(parsed);
-}
+import { tetMeshFromInline, tetMeshFromMeshId } from "@/lib/mesh-storage";
 
 /* POST /api/solve/fea-static — session-or-api-key */
 export async function POST(req: NextRequest) {
