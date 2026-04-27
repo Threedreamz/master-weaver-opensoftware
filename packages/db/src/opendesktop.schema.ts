@@ -42,7 +42,25 @@ export const deskWorkstations = sqliteTable("desk_workstations", {
   zoneId: text("zone_id").notNull().references(() => deskZones.id, { onDelete: "cascade" }),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
-  type: text("type", { enum: ["scanning", "cad", "printing", "quality_check", "packaging", "assembly", "office", "general"] }).default("general").notNull(),
+  type: text("type", { enum: [
+    // Original generic types
+    "scanning", "cad", "printing", "quality_check", "packaging", "assembly", "office", "general",
+    // IES-specific manufacturing types (added for Ersatzteildrucken portfolio)
+    "ct_scan",          // Werth TomoScope XS Plus (Röntgentomographie)
+    "printing_sls",     // Formlabs Fuse (PA12)
+    "printing_sla",     // Formlabs SLA (Kunstharze)
+    "printing_fdm",     // FDM-Drucker (PLA/PETG/TPU/ABS/PEEK)
+    "printing_slm",     // Concept Laser SLM (Metalldruck)
+    "injection_molding",// Arburg + Babyplast Spritzguss
+    "cnc_milling",      // CNC-Fräsen
+    "cnc_turning",      // CNC-Drehen
+    "grinding",         // Schleifen (Profil + Flach)
+    "edm",              // Funkenerodieren (Draht + Senk)
+    "laser_weld",       // Laserschweißen
+    "laser_engrave",    // Lasergravur
+    "tool_making",      // Werkzeugbau-Platz
+    "shipping",         // Versand mit Etikettendrucker (PII-relevant)
+  ] }).default("general").notNull(),
   status: text("status", { enum: ["active", "inactive", "maintenance", "reserved"] }).default("active").notNull(),
   assignedUserId: text("assigned_user_id").references(() => users.id),
   description: text("description"),
@@ -89,7 +107,13 @@ export const deskWorkflows = sqliteTable("desk_workflows", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   description: text("description"),
-  workstationType: text("workstation_type", { enum: ["scanning", "cad", "printing", "quality_check", "packaging", "assembly", "office", "general", "any"] }).default("any").notNull(),
+  workstationType: text("workstation_type", { enum: [
+    "scanning", "cad", "printing", "quality_check", "packaging", "assembly", "office", "general",
+    "ct_scan", "printing_sls", "printing_sla", "printing_fdm", "printing_slm",
+    "injection_molding", "cnc_milling", "cnc_turning", "grinding", "edm",
+    "laser_weld", "laser_engrave", "tool_making", "shipping",
+    "any",  // matches all
+  ] }).default("any").notNull(),
   status: text("status", { enum: ["draft", "active", "archived"] }).default("draft").notNull(),
   version: integer("version").default(1).notNull(),
   createdBy: text("created_by").references(() => users.id),

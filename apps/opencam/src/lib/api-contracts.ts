@@ -25,6 +25,25 @@ export const ErrorResponse = z.object({
 });
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
+/**
+ * Structured deferred-feature response (HTTP 422 + X-Feature-Status: deferred-m2).
+ *
+ * Returned when a route receives a syntactically valid request that targets a
+ * feature scheduled for a future milestone. Hubs render this as a friendly
+ * "shipping in M2" banner instead of a generic 5xx/501. Surfaces in:
+ *   - POST /api/operations/[id]/generate    (kinds: adaptive, 3d-parallel)
+ *   - POST /api/postprocess                  (dialect: mach3)
+ *   - POST /api/opencad/import               (format: step)
+ */
+export const FeatureDeferredResponse = z.object({
+  error: z.literal("feature_deferred"),
+  milestone: z.string(), // e.g. "M2"
+  feature: z.string(),   // e.g. "adaptive", "mach3-dialect", "step-import"
+  supported: z.array(z.string()),
+  message: z.string(),
+});
+export type FeatureDeferredResponse = z.infer<typeof FeatureDeferredResponse>;
+
 export const IdParam = z.object({ id: z.string().min(1) });
 export const Vec3 = z.object({ x: z.number(), y: z.number(), z: z.number() });
 export const BBox = z.object({ min: Vec3, max: Vec3 });
@@ -109,6 +128,16 @@ export const ToolListResponse = z.object({ items: z.array(Tool) });
 
 /* -------------------------------------------------------------------- operations */
 
+/**
+ * CAM operation kinds.
+ *
+ * M1 implements: face, contour, pocket, drill — these compute toolpaths via
+ *   POST /api/operations/[id]/generate.
+ * M2 deferred: adaptive, 3d-parallel — generate returns 422 FeatureDeferredResponse
+ *   (see X-Feature-Status: deferred-m2 header). The enum keeps the values so
+ *   hubs can render the kind selector without conditional gating; the runtime
+ *   gate lives in the route handler.
+ */
 export const CamOperationKind = z.enum([
   "face",
   "contour",
@@ -161,6 +190,15 @@ export const GenerateToolpathResponse = ToolpathResult;
 
 /* -------------------------------------------------------------------- post processors */
 
+/**
+ * G-code post-processor dialects.
+ *
+ * M1 implements: grbl, marlin, fanuc, linuxcnc, haas — POST /api/postprocess
+ *   renders G-code via the matching renderer.
+ * M2 deferred: mach3 — POST /api/postprocess returns 422 FeatureDeferredResponse
+ *   when post.dialect === "mach3" (see X-Feature-Status: deferred-m2 header).
+ *   The enum keeps mach3 so existing post-processor rows survive validation.
+ */
 export const PostProcessor = z.object({
   id: z.string(),
   name: z.string().min(1).max(200),
@@ -212,6 +250,10 @@ export const StockSetup = z.object({
 
 /**
  * POST /api/opencad/import — pull STEP/STL from opencad into an opencam project.
+ *
+ * M1 supports format="stl" (binary STL parsed for bbox + triangleCount).
+ * format="step" returns 422 FeatureDeferredResponse (M2). Callers should fall
+ * back to STL export from opencad until STEP parsing ships.
  *
  * CRITICAL: server uses fetch() against opencad's /api/projects/[id]/export/[format]
  * with streaming — callers MUST NOT buffer the response. The fetch site in

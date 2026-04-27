@@ -24,10 +24,14 @@ function isPublicPath(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Let health check, appstore manifest and auth routes through without auth
+  // Let health check, appstore manifest, integration handshake and auth
+  // routes through without auth. /api/integration is the gateway handshake
+  // endpoint — public by design so the gateway can discover this service
+  // without holding a credential.
   if (
     pathname === "/api/health" ||
     pathname === "/api/appstore/manifest" ||
+    pathname === "/api/integration" ||
     pathname.startsWith("/api/auth")
   ) {
     return NextResponse.next();

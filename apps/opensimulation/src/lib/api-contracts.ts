@@ -312,7 +312,10 @@ export const ImportOpenCadResponse = z.object({
 });
 export type ImportOpenCadResponse = z.infer<typeof ImportOpenCadResponse>;
 
-/* POST /api/opencam/import-toolpath — session-or-api-key (M1 stub: returns 501) */
+/* POST /api/opencam/import-toolpath — session-or-api-key
+ * M1: validates body, then returns 422 `feature_deferred` (milestone "M2") with
+ * `supported_alternatives` pointing at /api/opencad/import. Full toolpath
+ * ingestion + cleaning-sim run creation lands in M2. */
 export const ImportOpenCamToolpathBody = z.object({
   openCamProjectId: z.string(),
   operationIds: z.array(z.string()),
@@ -322,7 +325,10 @@ export type ImportOpenCamToolpathBody = z.infer<typeof ImportOpenCamToolpathBody
 export const ImportOpenCamToolpathResponse = z.object({ runId: z.string() });
 export type ImportOpenCamToolpathResponse = z.infer<typeof ImportOpenCamToolpathResponse>;
 
-/* POST /api/odyn/import-sequence — session-or-api-key */
+/* POST /api/odyn/import-sequence — session-or-api-key
+ * M1: validates body, then returns 422 `feature_deferred` (milestone "M2") with
+ * `supported_alternatives` pointing at /api/solve/kinematic. Full ODYN
+ * joint-sequence replay → kinematic-fwd run conversion lands in M2. */
 export const ImportOdynSequenceBody = z.object({
   odynDeviceId: z.string(),
   sessionId: z.string(),

@@ -1,1 +1,54 @@
 @import "tailwindcss";
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+@source "../../../../packages/openportal-ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/openportal-core/src/**/*.{ts,tsx}";
+
+@layer theme {
+  :root {
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+
+    --color-brand: #2563eb;
+    --color-brand-dark: #1d4ed8;
+
+    --bg-primary: #fafafa;
+    --bg-secondary: #ffffff;
+    --bg-panel: #f4f4f5;
+    --bg-panel-hover: #e4e4e7;
+
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --text-muted: #71717a;
+    --text-inverse: #fafafa;
+
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+}

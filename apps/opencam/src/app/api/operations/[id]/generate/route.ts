@@ -73,8 +73,20 @@ export async function POST(_req: NextRequest, ctx: RouteCtx) {
   // Branch on kind.
   if (op.kind === "adaptive" || op.kind === "3d-parallel") {
     return NextResponse.json(
-      { error: `M1: ${op.kind} not implemented — ships in M2` },
-      { status: 501 },
+      {
+        error: "feature_deferred",
+        milestone: "M2",
+        feature: op.kind,
+        supported: ["face", "contour", "pocket", "drill"],
+        message: `Operation kind "${op.kind}" is not yet implemented — ships in the M2 milestone. Supported kinds in M1: face, contour, pocket, drill.`,
+      },
+      {
+        status: 422,
+        headers: {
+          "X-Feature-Status": "deferred-m2",
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
 

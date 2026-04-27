@@ -17,7 +17,7 @@ const providers: Provider[] = [];
 if (process.env.FINDERAUTH_ISSUER && process.env.FINDERAUTH_CLIENT_ID && process.env.FINDERAUTH_CLIENT_SECRET) {
   providers.push({
     id: "finderauth",
-    name: "FinderAuth",
+    name: process.env.AUTH_BRAND_NAME ?? "3Dreamz",
     type: "oidc",
     issuer: process.env.FINDERAUTH_ISSUER,
     clientId: process.env.FINDERAUTH_CLIENT_ID,

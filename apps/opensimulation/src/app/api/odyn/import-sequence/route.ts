@@ -7,8 +7,10 @@ import { ImportOdynSequenceBody } from "@/lib/api-contracts";
 
 /**
  * POST /api/odyn/import-sequence — M1 stub.
- * Validates the body, then returns 501. Full ODYN joint-sequence replay →
- * kinematic-fwd run conversion lands in M2.
+ * Validates the body, then returns a structured 422 `feature_deferred`
+ * response so the hub can render a clean "feature not yet available"
+ * message instead of a generic server error. Full ODYN joint-sequence
+ * replay → kinematic-fwd run conversion lands in M2.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireSessionOrApiKey(req);
@@ -24,7 +26,19 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(
-    { error: "Not implemented in M1", details: { ticket: "M2" } },
-    { status: 501 },
+    {
+      error: "feature_deferred",
+      milestone: "M2",
+      message:
+        "odyn-import is scheduled for the M2 milestone. The endpoint accepts and validates payloads, but does not yet execute the import.",
+      supported_alternatives: ["POST /api/solve/kinematic (manual joint targets)"],
+    },
+    {
+      status: 422,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Feature-Status": "deferred-m2",
+      },
+    },
   );
 }

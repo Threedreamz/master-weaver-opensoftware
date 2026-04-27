@@ -2,8 +2,13 @@
  * opencad — pure-JS CAD kernel (M1).
  *
  * Uses Three.js primitives for mesh construction and boolean CSG via
- * `three-bvh-csg` (optional dep — falls back to no-op + warning if missing,
- * so the module loads cleanly before the install has landed).
+ * `three-bvh-csg` (REQUIRED runtime dep — declared in package.json).
+ *
+ * Loading is lazy: the module imports cleanly even if the dep is somehow
+ * absent at build time, but `booleanOp()` will throw
+ * `BooleanOpUnsupportedError` on the first call so callers see a clear
+ * error instead of silently-wrong geometry. Feature-timeline routes catch
+ * this and surface it as a user-facing operation error.
  *
  * All public functions are Node-compatible: no `window`, no `document`, no
  * DOM-dependent Three.js helpers. Units: millimeters (mm).
@@ -34,19 +39,43 @@ type CsgLib = {
 };
 
 let cachedCsg: CsgLib | null | undefined = undefined;
+let cachedCsgLoadError: Error | null = null;
 
-/** Lazily load three-bvh-csg; returns null if the package isn't installed. */
+/**
+ * Custom error thrown when boolean ops are invoked without three-bvh-csg
+ * loaded. Feature-timeline routes catch by name and surface as a
+ * user-facing operation error rather than a generic 500.
+ */
+export class BooleanOpUnsupportedError extends Error {
+  public readonly cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "BooleanOpUnsupportedError";
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
+/**
+ * Lazily load three-bvh-csg.
+ *
+ * Returns the loaded module on success. On failure, returns null AND records
+ * the underlying load error in `cachedCsgLoadError` so `booleanOp()` can
+ * throw a precise `BooleanOpUnsupportedError` only when actually called.
+ *
+ * Module init MUST NOT throw — this keeps server boot, type-checking, and
+ * page-data collection succeeding even if the dep is somehow absent.
+ */
 function loadCsg(): CsgLib | null {
   if (cachedCsg !== undefined) return cachedCsg;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("three-bvh-csg") as CsgLib;
     cachedCsg = mod;
+    cachedCsgLoadError = null;
     return mod;
-  } catch {
-    // eslint-disable-next-line no-console
-    console.warn("[opencad:kernel] three-bvh-csg not installed — booleanOp will return lhs");
+  } catch (err) {
     cachedCsg = null;
+    cachedCsgLoadError = err instanceof Error ? err : new Error(String(err));
     return null;
   }
 }
@@ -255,7 +284,15 @@ function normalizeForCsg(
   return out;
 }
 
-/** CSG boolean — requires three-bvh-csg. Falls back to `a` if lib missing. */
+/**
+ * CSG boolean — REQUIRES three-bvh-csg.
+ *
+ * Throws `BooleanOpUnsupportedError` if the dep failed to load. Callers
+ * (feature-timeline / evaluate routes) catch by `err.name === "BooleanOpUnsupportedError"`
+ * and surface it as a 422 user-facing operation error rather than silently
+ * returning the left operand (which produces wrong geometry and hides
+ * feature loss — see 2026-04-27 audit).
+ */
 export function booleanOp(
   a: THREE.BufferGeometry | SolidResult,
   b: THREE.BufferGeometry | SolidResult,
@@ -265,9 +302,10 @@ export function booleanOp(
   const aGeom = normalizeForCsg(a);
   const bGeom = normalizeForCsg(b);
   if (!lib) {
-    // eslint-disable-next-line no-console
-    console.warn(`[opencad:kernel] booleanOp(${op}) skipped — three-bvh-csg missing`);
-    return toSolid(aGeom);
+    throw new BooleanOpUnsupportedError(
+      `BooleanOpUnsupportedError: three-bvh-csg not loaded — boolean ops (${op}) require this dependency. Run \`pnpm install three-bvh-csg\`.`,
+      cachedCsgLoadError ?? undefined
+    );
   }
   const brushA = new lib.Brush(aGeom) as unknown as { updateMatrixWorld: () => void };
   const brushB = new lib.Brush(bGeom) as unknown as { updateMatrixWorld: () => void };

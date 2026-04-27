@@ -156,8 +156,20 @@ export async function POST(req: NextRequest) {
   const renderer = renderers[post.dialect];
   if (!renderer) {
     return NextResponse.json(
-      { error: `dialect not implemented in M1: ${post.dialect}` },
-      { status: 501 },
+      {
+        error: "feature_deferred",
+        milestone: "M2",
+        feature: `${post.dialect}-dialect`,
+        supported: ["grbl", "marlin", "fanuc", "linuxcnc", "haas"],
+        message: `G-code dialect "${post.dialect}" is not yet implemented — ships in the M2 milestone. Supported dialects in M1: grbl, marlin, fanuc, linuxcnc, haas.`,
+      },
+      {
+        status: 422,
+        headers: {
+          "X-Feature-Status": "deferred-m2",
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
 

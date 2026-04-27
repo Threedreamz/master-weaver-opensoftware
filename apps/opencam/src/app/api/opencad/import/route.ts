@@ -65,8 +65,9 @@ function parseBinaryStl(bytes: Uint8Array): { bbox: BBox3; triangleCount: number
  * POST /api/opencad/import (X-API-Key)
  *
  * Pull STEP/STL geometry from a companion opencad service into a NEW opencam
- * project. M1 parses STL for bbox + triangle count; STEP parsing is deferred
- * to M2 (returns a zero-bbox placeholder and stores only the hash).
+ * project. M1 parses STL for bbox + triangle count. STEP parsing is deferred
+ * to M2 — the route returns 422 feature_deferred rather than silently storing
+ * a zero-bbox placeholder mesh.
  *
  * TODO(M2): accept optional projectId to merge into an existing project;
  * implement STEP parsing for part bbox + feature-recognised hole list.
@@ -88,6 +89,30 @@ export async function POST(req: NextRequest) {
     );
   }
   const { openCadProjectId, versionId, role, format } = parsed.data;
+
+  // STEP parsing ships in M2 — refuse cleanly instead of storing a bogus
+  // zero-bbox placeholder mesh that downstream callers would treat as valid.
+  if (format === "step") {
+    return NextResponse.json(
+      {
+        error: "feature_deferred",
+        milestone: "M2",
+        feature: "step-import",
+        supported: ["stl"],
+        message:
+          "STEP geometry import is not yet implemented — ships in the M2 milestone. " +
+          "Export your opencad part as STL and retry. M2 will add STEP parsing for " +
+          "part bbox + feature-recognised hole list.",
+      },
+      {
+        status: 422,
+        headers: {
+          "X-Feature-Status": "deferred-m2",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   // Pull bytes from opencad (streaming, then buffered for hashing).
   let bytes: Uint8Array;
@@ -124,7 +149,8 @@ export async function POST(req: NextRequest) {
       triangleCount = parsed.triangleCount;
     }
   }
-  // TODO(M2): STEP parsing — use OpenCascade.js to extract part bbox + holes.
+  // STEP imports are short-circuited above with 422 feature_deferred; M2 will
+  // wire OpenCascade.js here to extract part bbox + recognised holes.
 
   // We don't get a session here — the API-key flow creates rows owned by a
   // synthetic "opencad-import" user scoped per caller. Since the caller must
