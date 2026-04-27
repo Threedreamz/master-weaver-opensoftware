@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 
 type RouteCtx = { params: Promise<{ id: string }> };
@@ -15,10 +15,10 @@ type RouteCtx = { params: Promise<{ id: string }> };
  * Ownership-checked via join on the parent project. Returns 404 if the gcode
  * row exists but the caller doesn't own the project.
  */
-export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const [row] = await db

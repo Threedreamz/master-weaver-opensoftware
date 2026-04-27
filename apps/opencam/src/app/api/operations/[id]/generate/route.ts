@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { generatePocketToolpath } from "@/lib/ops/pocket";
@@ -19,10 +19,10 @@ type RouteCtx = { params: Promise<{ id: string }> };
  * Compute the toolpath for the operation, cache it in opencamOperations.toolpathJson,
  * and return the canonical GenerateToolpathResponse shape.
  */
-export async function POST(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   // Load op + owning project (ownership gate).

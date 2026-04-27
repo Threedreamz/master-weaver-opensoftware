@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { asc, eq } from "drizzle-orm";
 import { ToolCreateBody } from "@/lib/api-contracts";
@@ -21,12 +21,10 @@ function serializeTool(row: typeof schema.opencamTools.$inferSelect) {
 }
 
 /* GET /api/tools — list tools owned by the caller. */
-export async function GET(_req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+export async function GET(req: NextRequest) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const rows = await db
     .select()
@@ -39,11 +37,9 @@ export async function GET(_req: NextRequest) {
 
 /* POST /api/tools — create a tool owned by the caller. */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = ToolCreateBody.safeParse(json);

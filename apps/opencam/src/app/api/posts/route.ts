@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { asc, eq, isNull, or } from "drizzle-orm";
 import { PostCreateBody } from "@/lib/api-contracts";
@@ -18,12 +18,10 @@ function serializePost(row: typeof schema.opencamPosts.$inferSelect) {
 }
 
 /* GET /api/posts — list caller's posts + built-in (userId IS NULL) posts. */
-export async function GET(_req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+export async function GET(req: NextRequest) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const rows = await db
     .select()
@@ -41,11 +39,9 @@ export async function GET(_req: NextRequest) {
 
 /* POST /api/posts — create a user-owned post. */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = PostCreateBody.safeParse(json);

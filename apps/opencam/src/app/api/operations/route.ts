@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { CreateOperationBody } from "@/lib/api-contracts";
@@ -24,11 +24,9 @@ function serializeOperation(row: typeof schema.opencamOperations.$inferSelect) {
 
 /* GET /api/operations?projectId=... — list operations for caller-owned projects. */
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId") ?? undefined;
@@ -55,11 +53,9 @@ export async function GET(req: NextRequest) {
 
 /* POST /api/operations — create an operation against a caller-owned project. */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = CreateOperationBody.safeParse(json);

@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, eq } from "drizzle-orm";
 import { PostPatchBody } from "@/lib/api-contracts";
@@ -21,9 +21,9 @@ function serializePost(row: typeof schema.opencamPosts.$inferSelect) {
 
 /* PATCH /api/posts/[id] */
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const [existing] = await db
@@ -70,10 +70,10 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 }
 
 /* DELETE /api/posts/[id] */
-export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const [existing] = await db

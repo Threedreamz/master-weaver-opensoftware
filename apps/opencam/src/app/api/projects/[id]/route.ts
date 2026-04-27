@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { PatchProjectBody } from "@/lib/api-contracts";
@@ -46,10 +46,10 @@ async function loadProjectDetail(projectId: string, userId: string) {
 }
 
 /* GET /api/projects/[id] */
-export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const detail = await loadProjectDetail(id, userId);
@@ -59,9 +59,9 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 
 /* PATCH /api/projects/[id] */
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const json = await req.json().catch(() => null);
@@ -125,10 +125,10 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 }
 
 /* DELETE /api/projects/[id] — soft delete. */
-export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
   const { id } = await ctx.params;
 
   const result = await db

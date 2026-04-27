@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { SimulateBody } from "@/lib/api-contracts";
@@ -19,9 +19,9 @@ import type { BBox3, Polyline3 } from "@/lib/cam-kernel";
  * result of sim without a toolpath is useless — surface the warning instead).
  */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = SimulateBody.safeParse(json);

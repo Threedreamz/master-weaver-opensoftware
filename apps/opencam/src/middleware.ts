@@ -6,7 +6,7 @@ const secret = process.env.AUTH_SECRET;
 
 /**
  * Public path prefixes that do not require authentication.
- * Everything else requires a valid session (or an X-API-Key on routes that accept one).
+ * Everything else requires a valid session.
  */
 const PUBLIC_PATH_PREFIXES = [
   "/login",
@@ -21,14 +21,6 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
-/**
- * Service-to-service routes that accept X-API-Key instead of a session.
- * The route handler still validates the key against OPENSOFTWARE_API_KEY;
- * middleware just passes through when the header is present so the handler
- * can do its own auth check.
- */
-const API_KEY_ROUTE_PREFIXES = ["/api/opencad/import"];
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -41,12 +33,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Other API routes: accept either a NextAuth session (standalone browser)
+  // OR a shared-secret X-API-Key (hub-to-opencam server-to-server). Hub
+  // additionally forwards X-Hub-User-Id; route handlers resolve the acting
+  // user via `resolveUser()` (see lib/internal-user.ts).
   if (pathname.startsWith("/api")) {
-    // Routes that accept an API key — let them through; handler validates.
-    if (
-      API_KEY_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/")) &&
-      request.headers.get("x-api-key")
-    ) {
+    const apiKey = request.headers.get("x-api-key");
+    const expectedKey = process.env.OPENSOFTWARE_API_KEY;
+    if (expectedKey && apiKey && apiKey === expectedKey) {
       return NextResponse.next();
     }
     const token = await getToken({ req: request, secret });

@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/internal-user";
 import { db, schema } from "@/db";
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import {
@@ -12,11 +12,9 @@ import {
 
 /* GET /api/projects — list the caller's opencam projects (not-deleted only). */
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const { searchParams } = new URL(req.url);
   const parsed = ListProjectsQuery.safeParse({
@@ -88,11 +86,9 @@ export async function GET(req: NextRequest) {
 
 /* POST /api/projects — create a new opencam project owned by the caller. */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id: string }).id;
+  const u = await resolveUser(req);
+  if (u instanceof NextResponse) return u;
+  const userId = u.id;
 
   const json = await req.json().catch(() => null);
   const parsed = CreateProjectBody.safeParse(json);
