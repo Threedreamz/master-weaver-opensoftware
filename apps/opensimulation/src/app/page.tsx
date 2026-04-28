@@ -1,5 +1,3 @@
-import CantileverDemo from "@/components/demo/cantilever-demo";
-
 type Domain = {
   slug: string;
   title: string;
@@ -24,28 +22,21 @@ export default function RootPage() {
       </div>
       <h1 className="mt-2 text-4xl font-semibold tracking-tight">OpenSimulation</h1>
       <p className="mt-2 text-neutral-400">
-        Browser-native physics + kinematics simulator. The result below is
-        computed live by a TypeScript Cholesky FEA kernel — no plugins, no
-        cloud GPU, no sign-in.
+        Browser-native physics + kinematics simulator. This is the
+        OpenSimulation backend service — the interactive workbench is hosted in
+        the 3Dreamz hub.
       </p>
 
-      <section className="mt-8">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
-          Live demo · cantilever beam
-        </div>
-        <div className="mt-2">
-          <CantileverDemo />
-        </div>
-      </section>
-
-      <div className="mt-10 rounded-lg border border-amber-700/40 bg-amber-900/10 p-5 text-sm">
-        <div className="font-medium text-amber-300">Run your own simulation</div>
+      <div className="mt-8 rounded-lg border border-amber-700/40 bg-amber-900/10 p-5 text-sm">
+        <div className="font-medium text-amber-300">Open the simulator</div>
         <p className="mt-1 text-neutral-300">
           Sign in at the 3Dreamz hub and open
-          <span className="font-mono text-amber-300"> /tools/sim</span> to
-          create a project, import a part from OpenCAD, and run FEA, thermal,
-          kinematic, or cleaning solvers on it. API access is documented at
-          <span className="font-mono text-amber-300"> /api/health</span>.
+          <span className="font-mono text-amber-300"> /tools/simulation</span> to
+          run FEA, thermal, kinematic, or cleaning solvers on imported parts.
+          API health is at
+          <span className="font-mono text-amber-300"> /api/health</span> and the
+          public demo payload at
+          <span className="font-mono text-amber-300"> /api/demo/cantilever</span>.
         </p>
       </div>
 
