@@ -1,0 +1,19 @@
+{
+  "site": {
+    "title": "IES — Messtechnik · Produktentwicklung · Automation",
+    "description": "B2B-Messtechnik aus Braak/Hamburg. CT, optische 3D-Messung, additive Fertigung, CNC. Wir messen, Sie produzieren."
+  },
+  "hero": {
+    "eyebrow": "IES GmbH · Braak / Hamburg",
+    "headline": "Wir messen,\nSie produzieren.",
+    "lead": "Ganzheitliche Produkt- und Prozessentwicklung mit Industrieller Computertomographie, optischer 3D-Messung und additiver Fertigung — von der Anfrage bis zum Messbericht.",
+    "ctaPrimary": "Messauftrag stellen",
+    "ctaSecondary": "Maschinenpark ansehen"
+  },
+  "wip": {
+    "badge": "Work in Progress",
+    "headline": "Diese Seite wird gerade gebaut.",
+    "lead": "Welle 0 ist live (Foundation). Welle 1 (Landing + Messauftrag-Form) folgt.",
+    "status": "Status:"
+  }
+}

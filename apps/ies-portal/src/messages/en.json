@@ -1,0 +1,19 @@
+{
+  "site": {
+    "title": "IES — Metrology · Product Development · Automation",
+    "description": "B2B metrology from Braak/Hamburg. CT, optical 3D measurement, additive manufacturing, CNC. We measure, you produce."
+  },
+  "hero": {
+    "eyebrow": "IES GmbH · Braak / Hamburg",
+    "headline": "We measure,\nyou produce.",
+    "lead": "End-to-end product and process development with industrial computed tomography, optical 3D measurement and additive manufacturing — from inquiry to measurement report.",
+    "ctaPrimary": "Request a measurement",
+    "ctaSecondary": "View machine park"
+  },
+  "wip": {
+    "badge": "Work in Progress",
+    "headline": "This site is being built.",
+    "lead": "Wave 0 is live (Foundation). Wave 1 (Landing + Inquiry Form) is next.",
+    "status": "Status:"
+  }
+}

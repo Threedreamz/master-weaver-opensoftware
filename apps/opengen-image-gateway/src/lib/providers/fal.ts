@@ -53,6 +53,14 @@ function modelFromPayload(p: Record<string, unknown>): string {
   return typeof v === "string" && v.length > 0 ? v : DEFAULT_MODEL;
 }
 
+// Fal queue API: submit POSTs to /<full/model/path> but status + response
+// fetches use the namespace only (e.g. fal-ai/flux, NOT fal-ai/flux/schnell).
+// Sending the full model path to /requests/<id>/status returns HTTP 405.
+function namespaceOf(model: string): string {
+  const parts = model.split("/").filter(Boolean);
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : model;
+}
+
 function normalisePrompt(p: Record<string, unknown>): string {
   const v = p["prompt"];
   if (typeof v === "string" && v.length > 0) return v;
@@ -108,8 +116,9 @@ export const falProvider: ProviderAdapter = {
     }
     const model = providerJobId.slice(0, sep);
     const requestId = providerJobId.slice(sep + 2);
+    const ns = namespaceOf(model);
 
-    const statusUrl = `${QUEUE_BASE}/${model}/requests/${requestId}/status`;
+    const statusUrl = `${QUEUE_BASE}/${ns}/requests/${requestId}/status`;
     const statusResp = await fetch(statusUrl, {
       headers: { Authorization: authHeader() },
     });
@@ -130,7 +139,7 @@ export const falProvider: ProviderAdapter = {
       return { status: "running" };
     }
 
-    const respUrl = status.response_url ?? `${QUEUE_BASE}/${model}/requests/${requestId}`;
+    const respUrl = status.response_url ?? `${QUEUE_BASE}/${ns}/requests/${requestId}`;
     const respResp = await fetch(respUrl, {
       headers: { Authorization: authHeader() },
     });
