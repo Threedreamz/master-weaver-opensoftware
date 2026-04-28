@@ -44,4 +44,4 @@ function openWithRetry(path: string, maxAttempts = 20): Database.Database {
 const sqlite = openWithRetry(dbPath);
 
 export const db = drizzle(sqlite, { schema });
-export { schema };
+export { schema, sqlite };
