@@ -13,11 +13,12 @@ import { templateGcode as marlinTpl } from "../post-processors/marlin";
 import { templateGcode as fanucTpl } from "../post-processors/fanuc";
 import { templateGcode as linuxcncTpl } from "../post-processors/linuxcnc";
 import { templateGcode as haasTpl } from "../post-processors/haas";
+import { templateGcode as mach3Tpl } from "../post-processors/mach3";
 
 interface PostSeed {
   id: string;
   name: string;
-  dialect: "grbl" | "marlin" | "fanuc" | "linuxcnc" | "haas";
+  dialect: "grbl" | "marlin" | "fanuc" | "linuxcnc" | "haas" | "mach3";
   templateGcode: string;
 }
 
@@ -27,6 +28,7 @@ const BUILTIN_POSTS: PostSeed[] = [
   { id: "fanuc-builtin",    name: "Fanuc 0i/30i (built-in)",   dialect: "fanuc",    templateGcode: fanucTpl },
   { id: "linuxcnc-builtin", name: "LinuxCNC/EMC2 (built-in)",  dialect: "linuxcnc", templateGcode: linuxcncTpl },
   { id: "haas-builtin",     name: "Haas VF-series (built-in)", dialect: "haas",     templateGcode: haasTpl },
+  { id: "mach3-builtin",    name: "Mach3 (built-in)",          dialect: "mach3",    templateGcode: mach3Tpl },
 ];
 
 export async function seedBuiltinPosts(): Promise<{ inserted: number; skipped: number }> {

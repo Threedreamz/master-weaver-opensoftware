@@ -1,8 +1,19 @@
 /**
  * opensimulation/solvers/cholesky — sparse + dense SPD linear algebra.
  *
- * Dense Cholesky is used for small FE systems (< ~30 DOF), conjugate gradient
- * handles the larger sparse assemblies. No preconditioner in M1.
+ * Dense Cholesky is used for small FE systems (< ~30 DOF). For larger sparse
+ * assemblies we ship two iterative solvers:
+ *   - solveSpdCg   : plain conjugate gradient (kept for backwards compat /
+ *                    unit tests that pin against unpreconditioned behaviour).
+ *   - solveSpdPcg  : Jacobi-preconditioned CG (M^-1 = diag(A)^-1). On a
+ *                    well-scaled FEA stiffness matrix this typically halves
+ *                    iteration count vs plain CG; the per-iteration overhead
+ *                    is one extra n-length elementwise multiply, so total
+ *                    wall-time drops roughly in proportion.
+ *
+ * Numerical equivalence: PCG converges to the same solution as CG within the
+ * same residual tolerance (tol on ||r||/||b||), so callers can swap freely
+ * without changing output to within ~1e-8.
  */
 
 import { SolverError } from "../kernel-types";
@@ -227,5 +238,119 @@ export function solveSpdCg(
   throw new SolverError(
     "NOT_CONVERGED",
     `CG failed to converge within ${maxIter} iterations`
+  );
+}
+
+/**
+ * Build a Jacobi (diagonal) preconditioner for sparse SPD A:
+ *   M_inv[i] = 1 / A[i][i]   (zero where the diagonal is missing or ~0).
+ *
+ * Walks the CSR row to find the diagonal entry; this is O(nnz) total and
+ * runs once per solve. Diagonals that are exactly 0 (degenerate row) get
+ * M_inv = 1, falling back to "no scaling" for that DOF rather than NaN — the
+ * residual on that row stays unconditioned, which is the safest behaviour
+ * for an FE assembly that has accidentally produced a zero diagonal.
+ */
+export function buildJacobiPreconditioner(A: SparseMatrix): Float64Array {
+  const { n, rowPtr, colIdx, values } = A;
+  const Minv = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const start = rowPtr[i];
+    const end = rowPtr[i + 1];
+    let diag = 0;
+    for (let k = start; k < end; k++) {
+      if (colIdx[k] === i) {
+        diag = values[k];
+        break;
+      }
+    }
+    // Use Math.abs guard so PENALTY (1e30) and tiny non-zero diagonals both
+    // produce a sensible reciprocal; only true zeros fall back to identity.
+    Minv[i] = Math.abs(diag) > 0 ? 1 / diag : 1;
+  }
+  return Minv;
+}
+
+/**
+ * Preconditioned conjugate gradient for sparse SPD A.
+ *
+ * Standard PCG (Saad, Iterative Methods for Sparse Linear Systems §9.2):
+ *   r0 = b - A x0      (x0 = 0 here so r0 = b)
+ *   z0 = M^-1 r0
+ *   p0 = z0
+ *   for k = 0, 1, ...
+ *     alpha = (r_k . z_k) / (p_k . A p_k)
+ *     x_{k+1} = x_k + alpha p_k
+ *     r_{k+1} = r_k - alpha A p_k
+ *     if ||r_{k+1}|| / ||b|| < tol: stop
+ *     z_{k+1} = M^-1 r_{k+1}
+ *     beta = (r_{k+1} . z_{k+1}) / (r_k . z_k)
+ *     p_{k+1} = z_{k+1} + beta p_k
+ *
+ * Tolerance is checked on the *unpreconditioned* residual norm (||r||/||b||)
+ * so callers comparing PCG vs CG output get the same accuracy guarantee.
+ *
+ * Defaults: tol = 1e-8, maxIter = 1000. Throws NOT_CONVERGED on failure.
+ */
+export function solveSpdPcg(
+  A: SparseMatrix,
+  b: Float64Array,
+  Minv?: Float64Array,
+  tol = 1e-8,
+  maxIter = 1000
+): Float64Array {
+  const n = A.n;
+  if (b.length !== n) {
+    throw new SolverError("BAD_INPUT", `rhs length ${b.length} != matrix dim ${n}`);
+  }
+
+  const M = Minv ?? buildJacobiPreconditioner(A);
+  if (M.length !== n) {
+    throw new SolverError("BAD_INPUT", `preconditioner length ${M.length} != matrix dim ${n}`);
+  }
+
+  const x = new Float64Array(n);
+  const r = new Float64Array(n);
+  const z = new Float64Array(n);
+  const p = new Float64Array(n);
+  const Ap = new Float64Array(n);
+
+  // r = b - A x  with x = 0  =>  r = b
+  for (let i = 0; i < n; i++) r[i] = b[i];
+
+  const bNorm = Math.sqrt(dot(b, b));
+  const scale = bNorm > 0 ? bNorm : 1;
+  if (Math.sqrt(dot(r, r)) / scale < tol) return x;
+
+  // z = M^-1 r ; p = z
+  for (let i = 0; i < n; i++) z[i] = M[i] * r[i];
+  for (let i = 0; i < n; i++) p[i] = z[i];
+
+  let rzOld = dot(r, z);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    spmv(A, p, Ap);
+    const pAp = dot(p, Ap);
+    if (pAp <= 0) {
+      throw new SolverError("MATRIX_SINGULAR", `non-SPD direction at iter ${iter} (pAp=${pAp})`);
+    }
+    const alpha = rzOld / pAp;
+
+    for (let i = 0; i < n; i++) x[i] += alpha * p[i];
+    for (let i = 0; i < n; i++) r[i] -= alpha * Ap[i];
+
+    const rNorm = Math.sqrt(dot(r, r));
+    if (rNorm / scale < tol) return x;
+
+    for (let i = 0; i < n; i++) z[i] = M[i] * r[i];
+    const rzNew = dot(r, z);
+    const beta = rzNew / rzOld;
+    for (let i = 0; i < n; i++) p[i] = z[i] + beta * p[i];
+    rzOld = rzNew;
+  }
+
+  throw new SolverError(
+    "NOT_CONVERGED",
+    `PCG failed to converge within ${maxIter} iterations`
   );
 }

@@ -9,6 +9,7 @@ import { generatePocketToolpath } from "@/lib/ops/pocket";
 import { generateContourToolpath } from "@/lib/ops/contour";
 import { generateFaceToolpath } from "@/lib/ops/face";
 import { generateDrillToolpath } from "@/lib/ops/drill";
+import { generateAdaptiveToolpath } from "@/lib/ops/adaptive";
 import type { BBox3 } from "@/lib/cam-kernel";
 
 type RouteCtx = { params: Promise<{ id: string }> };
@@ -60,7 +61,11 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const stock = project.stockBboxJson ?? null;
 
   // Reject obviously incomplete stock setups for kinds that need it.
-  const needsStock = op.kind === "face" || op.kind === "pocket" || op.kind === "contour";
+  const needsStock =
+    op.kind === "face" ||
+    op.kind === "pocket" ||
+    op.kind === "contour" ||
+    op.kind === "adaptive";
   if (needsStock && !stock) {
     return NextResponse.json(
       { error: "project.stockBboxJson required for this operation kind" },
@@ -70,20 +75,22 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const stockTopZMm = stock ? stock.max.z : 0;
   const safeZMm = Number(params.safeZMm ?? (stockTopZMm + 5));
 
-  // Branch on kind.
-  if (op.kind === "adaptive" || op.kind === "3d-parallel") {
+  // 3D-parallel ("waterline") is genuinely 3D — defer to M3.5.
+  // Adaptive clearing landed in M2 as a simplified morphed-spiral (see
+  // src/lib/ops/adaptive.ts top-of-file SIMPLIFICATION NOTICE).
+  if (op.kind === "3d-parallel") {
     return NextResponse.json(
       {
         error: "feature_deferred",
-        milestone: "M2",
+        milestone: "M3.5",
         feature: op.kind,
-        supported: ["face", "contour", "pocket", "drill"],
-        message: `Operation kind "${op.kind}" is not yet implemented — ships in the M2 milestone. Supported kinds in M1: face, contour, pocket, drill.`,
+        supported: ["face", "contour", "pocket", "drill", "adaptive"],
+        message: `Operation kind "${op.kind}" is not yet implemented — true 3D toolpaths ship in the M3.5 milestone. Supported kinds: face, contour, pocket, drill, adaptive.`,
       },
       {
         status: 422,
         headers: {
-          "X-Feature-Status": "deferred-m2",
+          "X-Feature-Status": "deferred-m3.5",
           "Cache-Control": "no-store",
         },
       },
@@ -125,13 +132,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         targetDepthMm,
         outline,
         islands: params.islands as Array<Array<{ x: number; y: number }>> | undefined,
+        finishStockMm: params.finishStockMm as number | undefined,
       });
-      if (result.notImplemented) {
-        return NextResponse.json(
-          { error: "jscut not installed — pocket requires optional dep" },
-          { status: 501 },
-        );
-      }
     } else if (op.kind === "contour") {
       const outline = params.outline as Array<{ x: number; y: number }> | undefined;
       if (!Array.isArray(outline) || outline.length < 2) {
@@ -211,6 +213,35 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         bbox: drillResult.bbox,
         warnings: drillResult.warnings,
       };
+    } else if (op.kind === "adaptive") {
+      const outline = params.outline as Array<{ x: number; y: number }> | undefined;
+      if (!Array.isArray(outline) || outline.length < 3) {
+        return NextResponse.json(
+          { error: "adaptive: paramsJson.outline (>=3 points) required" },
+          { status: 400 },
+        );
+      }
+      const targetDepthMm = Number(params.targetDepthMm);
+      if (!Number.isFinite(targetDepthMm) || targetDepthMm <= 0) {
+        return NextResponse.json(
+          { error: "adaptive: paramsJson.targetDepthMm must be positive" },
+          { status: 400 },
+        );
+      }
+      result = await generateAdaptiveToolpath({
+        toolDiameterMm: tool.diameterMm,
+        feedMmMin: op.feedMmMin,
+        spindleRpm: op.spindleRpm,
+        safeZMm,
+        stockTopZMm,
+        stepoverRatio: params.stepoverRatio as number | undefined,
+        stepdownMm: op.stepdownMm ?? undefined,
+        targetDepthMm,
+        outline,
+        maxEngagementRatio: params.maxEngagementRatio as number | undefined,
+        finishStockMm: params.finishStockMm as number | undefined,
+        smoothSubdivisions: params.smoothSubdivisions as number | undefined,
+      });
     } else {
       return NextResponse.json(
         { error: `unknown operation kind: ${op.kind}` },

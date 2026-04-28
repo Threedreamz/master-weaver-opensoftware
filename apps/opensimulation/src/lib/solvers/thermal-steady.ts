@@ -7,7 +7,7 @@
  */
 
 import { TetMesh, Material, BoundaryCondition, SolverError } from "../kernel-types";
-import { buildSparse, solveSpdCg, solveSpdDense, Triplet } from "./cholesky";
+import { buildSparse, solveSpdPcg, solveSpdDense, Triplet } from "./cholesky";
 
 export interface ThermalResult {
   temperatures: Float32Array;
@@ -95,7 +95,9 @@ export function solveThermalSteady(input: ThermalInput): ThermalResult {
     u = solveSpdDense(dense, nVerts, f);
   } else {
     const K = buildSparse(nVerts, triplets);
-    u = solveSpdCg(K, f);
+    // Jacobi-PCG: scalar conductivity matrix is even more diagonally-uniform
+    // than the elastic K, so a diagonal preconditioner is near-optimal here.
+    u = solveSpdPcg(K, f);
   }
 
   const temperatures = new Float32Array(nVerts);

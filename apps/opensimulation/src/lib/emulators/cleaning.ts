@@ -1,10 +1,14 @@
 /**
- * opensimulation — cleaning emulator
+ * opensimulation — cleaning emulator (LEGACY FALLBACK)
  *
  * Lookup-table based predictive emulator for SLS-part depowdering cycles.
- * Migrated from ODYN-starter/apps/odyn-maker/src/app/api/simulation/run/route.ts
- * (M1 copy-first migration). Pure function — no DB, no solver. Used by the
- * /api/solve/cleaning route and consumed by ODYN devices via thin-proxy.
+ * SUPERSEDED by the physics simulator at lib/sim/cleaning-physics.ts —
+ * kept as a fast fallback for callers that don't have a meshed surface +
+ * trajectory yet (e.g., upstream ODYN devices that only know strategy/mode).
+ *
+ * The /api/solve/cleaning route prefers cleaning-physics when the request
+ * body carries `surface` + `trajectory`, and falls back to runCleaning() here
+ * for the legacy `partId + strategy + mode` shape.
  */
 
 export type CleaningStrategy = "simple" | "standard" | "thorough" | "gentle";

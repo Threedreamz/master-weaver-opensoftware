@@ -56,7 +56,7 @@ export async function probeBrep(): Promise<BrepAvailability> {
   let occtMod: Record<string, unknown> | null = null;
   try {
     // Dynamic import — resolved lazily so the module loads cleanly without replicad.
-    // @ts-expect-error — replicad is an optional dep; module missing at typecheck is fine.
+    // replicad is an optional dep; if missing, the catch returns "not-installed".
     mod = (await import(/* webpackIgnore: true */ "replicad")) as Record<string, unknown>;
   } catch {
     probeCache = "not-installed";
@@ -83,7 +83,7 @@ export async function probeBrep(): Promise<BrepAvailability> {
 
     // Modern path: import replicad-opencascadejs separately.
     try {
-      // @ts-expect-error — optional peer, ships its own bundled WASM.
+      // optional peer, ships its own bundled WASM.
       occtMod = (await import(/* webpackIgnore: true */ "replicad-opencascadejs")) as Record<
         string,
         unknown
@@ -141,6 +141,11 @@ type ReplicadSolid = {
   chamfer?: (distance: number, edges?: unknown) => ReplicadSolid;
   shell?: (thickness: number, opts?: unknown) => ReplicadSolid;
   draft?: (neutralPlane: unknown, angleDeg: number) => ReplicadSolid;
+  // OCCT booleans (replicad >=0.20 — see node_modules/replicad/dist/replicad.d.ts
+  // _3DShape.fuse / cut / intersect). All three return a new Shape3D.
+  fuse?: (other: ReplicadSolid, opts?: unknown) => ReplicadSolid;
+  cut?: (tool: ReplicadSolid, opts?: unknown) => ReplicadSolid;
+  intersect?: (tool: ReplicadSolid) => ReplicadSolid;
   mesh?: (opts?: { tolerance?: number; angularTolerance?: number }) => {
     vertices?: Float32Array | number[];
     triangles?: Uint32Array | Uint16Array | number[];
@@ -233,6 +238,68 @@ async function toSolidResult(geom: THREE.BufferGeometry): Promise<SolidResult> {
 }
 
 /* ---------------------------------------------------------- public ops */
+
+/**
+ * BREP-exact boolean (cut / fuse / intersect) on two replicad Solid handles.
+ *
+ * Returns a `SolidResult` with `brepSolid` set to the resulting OCCT solid so
+ * subsequent ops (fillet, chamfer, another boolean, STEP export) stay in
+ * BREP-land. Returns `null` when:
+ *   - replicad is `not-installed` or `wasm-failed` (caller falls back)
+ *   - either input solid lacks the required boolean method
+ *   - the OCCT boolean throws (non-manifold inputs etc.)
+ *
+ * `cad-kernel.booleanOpAsync` is the only intended caller; it wraps this in
+ * a mesh-CSG safety net so the public surface stays unchanged.
+ */
+export async function brepBoolean(
+  aBrep: unknown,
+  bBrep: unknown,
+  op: "union" | "subtract" | "intersect"
+): Promise<SolidResult | null> {
+  const availability = await probeBrep();
+  if (availability !== "available") {
+    warnFallback("brepBoolean", availability);
+    return null;
+  }
+
+  const a = aBrep as ReplicadSolid | null | undefined;
+  const b = bBrep as ReplicadSolid | null | undefined;
+  if (!a || !b) return null;
+
+  let resultSolid: ReplicadSolid | null = null;
+  try {
+    if (op === "union") {
+      if (typeof a.fuse !== "function") return null;
+      resultSolid = a.fuse(b);
+    } else if (op === "subtract") {
+      if (typeof a.cut !== "function") return null;
+      resultSolid = a.cut(b);
+    } else {
+      // intersect
+      if (typeof a.intersect !== "function") return null;
+      resultSolid = a.intersect(b);
+    }
+  } catch {
+    warnFallback("brepBoolean", "wasm-failed");
+    return null;
+  }
+
+  if (!resultSolid) return null;
+
+  // Mesh the BREP result for client-side rendering — but keep the BREP
+  // handle attached to the SolidResult so the next op stays exact.
+  const meshGeom = replicadSolidToGeometry(resultSolid);
+  if (!meshGeom) {
+    warnFallback("brepBoolean", "wasm-failed");
+    return null;
+  }
+
+  const wrapped = await toSolidResult(meshGeom);
+  wrapped.brepSolid = resultSolid;
+  wrapped.booleanMode = "brep";
+  return wrapped;
+}
 
 /**
  * BREP-exact edge fillet. Falls back to `cad-kernel.fillet` mesh

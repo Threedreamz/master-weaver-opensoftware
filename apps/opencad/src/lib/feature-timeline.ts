@@ -37,6 +37,7 @@ import {
   extrudeProfile,
   revolveProfile,
   booleanOp,
+  booleanOpAsync,
   fillet,
   chamfer,
   tessellate,
@@ -475,9 +476,13 @@ async function evaluateFeature(
             : feature.kind === "boolean-union"
               ? "union"
               : ((params.op as BooleanOpKind | undefined) ?? "union");
-      solid = booleanOp(parentSolids[0].mesh, parentSolids[1].mesh, op);
+      // Pass full SolidResults (not just .mesh) so any attached `brepSolid`
+      // handles propagate through the BREP-preferring async boolean. Mesh-CSG
+      // path is the safety net inside `booleanOpAsync` when WASM is missing
+      // or either input is mesh-only.
+      solid = await booleanOpAsync(parentSolids[0], parentSolids[1], op);
       for (let i = 2; i < parentSolids.length; i++) {
-        solid = booleanOp(solid.mesh, parentSolids[i].mesh, op);
+        solid = await booleanOpAsync(solid, parentSolids[i], op);
       }
       break;
     }

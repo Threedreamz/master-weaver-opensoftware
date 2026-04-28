@@ -5,7 +5,7 @@
  */
 
 import { TetMesh, Material, BoundaryCondition, SolverError } from "../kernel-types";
-import { buildSparse, solveSpdCg, solveSpdDense, Triplet } from "./cholesky";
+import { buildSparse, solveSpdPcg, solveSpdDense, Triplet } from "./cholesky";
 
 export interface FeaResult {
   displacements: Float32Array;
@@ -107,7 +107,10 @@ export function solveFeaStatic(input: FeaInput): FeaResult {
     u = solveSpdDense(dense, nDof, f);
   } else {
     const K = buildSparse(nDof, triplets);
-    u = solveSpdCg(K, f);
+    // Jacobi-PCG: Dirichlet penalty rows get M_inv ~ 1e-30, which scales down
+    // their already-tiny residual contribution and keeps iteration count
+    // proportional to the physical condition number rather than the penalty.
+    u = solveSpdPcg(K, f);
   }
 
   const displacements = new Float32Array(nDof);

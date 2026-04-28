@@ -70,6 +70,22 @@ export async function register() {
     } catch (seedErr) {
       console.error(`[opencam:boot] built-in posts seed FAILED (non-fatal):`, seedErr);
     }
+
+    // Seed default tool library (8 endmills + 4 drills + 2 ball endmills + v-bit)
+    // ONLY on first boot when the tools table is empty — never clobbers
+    // user-modified tools. Stable IDs (tool-builtin-*) mean operations can
+    // FK-reference these tools and survive a re-seed cleanly.
+    try {
+      const { seedToolLibrary } = await import("./lib/seed/seed-tools");
+      const result = await seedToolLibrary();
+      if (result.skipped) {
+        console.log(`[opencam:boot] default tool library — skipped (table not empty)`);
+      } else {
+        console.log(`[opencam:boot] default tool library seeded — inserted=${result.inserted}`);
+      }
+    } catch (seedErr) {
+      console.error(`[opencam:boot] default tool library seed FAILED (non-fatal):`, seedErr);
+    }
   } catch (err) {
     console.error(`[opencam:boot] FATAL — db init failed:`, err);
     throw err;

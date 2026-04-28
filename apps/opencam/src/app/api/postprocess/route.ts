@@ -13,20 +13,21 @@ import { renderMarlin } from "@/lib/post-processors/marlin";
 import { renderFanuc } from "@/lib/post-processors/fanuc";
 import { renderLinuxcnc } from "@/lib/post-processors/linuxcnc";
 import { renderHaas } from "@/lib/post-processors/haas";
+import { renderMach3 } from "@/lib/post-processors/mach3";
 import { generatePocketToolpath } from "@/lib/ops/pocket";
 import { generateContourToolpath } from "@/lib/ops/contour";
 import { generateFaceToolpath } from "@/lib/ops/face";
 import { generateDrillToolpath } from "@/lib/ops/drill";
 import type { PostRenderInput, PostRenderResult } from "@/lib/post-processor";
 
-// Dialect -> renderer. M1 ships grbl/marlin/fanuc/linuxcnc/haas. mach3 defers to M2.
+// Dialect -> renderer. M2 ships mach3 alongside the M1 set.
 const renderers: Record<string, ((input: PostRenderInput) => PostRenderResult) | undefined> = {
   grbl: renderGrbl,
   marlin: renderMarlin,
   fanuc: renderFanuc,
   linuxcnc: renderLinuxcnc,
   haas: renderHaas,
-  // mach3 ships in M2
+  mach3: renderMach3,
 };
 
 /** Recompute toolpath for an op missing its cache. Returns null on unsupported kinds. */
@@ -157,19 +158,12 @@ export async function POST(req: NextRequest) {
   if (!renderer) {
     return NextResponse.json(
       {
-        error: "feature_deferred",
-        milestone: "M2",
+        error: "unsupported_dialect",
         feature: `${post.dialect}-dialect`,
-        supported: ["grbl", "marlin", "fanuc", "linuxcnc", "haas"],
-        message: `G-code dialect "${post.dialect}" is not yet implemented — ships in the M2 milestone. Supported dialects in M1: grbl, marlin, fanuc, linuxcnc, haas.`,
+        supported: ["grbl", "marlin", "fanuc", "linuxcnc", "haas", "mach3"],
+        message: `G-code dialect "${post.dialect}" is not supported. Supported dialects: grbl, marlin, fanuc, linuxcnc, haas, mach3.`,
       },
-      {
-        status: 422,
-        headers: {
-          "X-Feature-Status": "deferred-m2",
-          "Cache-Control": "no-store",
-        },
-      },
+      { status: 422, headers: { "Cache-Control": "no-store" } },
     );
   }
 

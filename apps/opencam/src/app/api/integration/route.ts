@@ -38,7 +38,7 @@ export async function GET() {
     },
     capabilities: {
       operationKinds: ["face", "contour", "pocket", "drill", "adaptive", "3d-parallel"],
-      implementedKinds: ["face", "contour", "drill"],          // pocket requires jscut optional-dep
+      implementedKinds: ["face", "contour", "drill", "adaptive"], // pocket requires jscut optional-dep; 3d-parallel deferred to M3.5
       postProcessorDialects: ["grbl", "marlin", "fanuc", "linuxcnc", "haas"],
       opencadImportFormats: ["stl"],                             // step deferred to M2
       streamingUpload: true,

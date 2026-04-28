@@ -56,6 +56,28 @@ export class BooleanOpUnsupportedError extends Error {
 }
 
 /**
+ * Custom error thrown when a kernel op cannot produce correct geometry —
+ * e.g. fillet/chamfer hitting the mesh-mode branch when replicad WASM is
+ * unavailable, where silently returning the input solid would mark the
+ * feature as "applied" while the geometry is unchanged. Feature-timeline
+ * catches this per-feature and surfaces it in the response `errors[]`
+ * array so the UI can render the feature as failed (red badge).
+ *
+ * `code` lets callers branch on a stable identifier instead of message
+ * substring matching; `cause` preserves the underlying error if any.
+ */
+export class KernelError extends Error {
+  public readonly code: string;
+  public readonly cause?: unknown;
+  constructor(message: string, code: string, cause?: unknown) {
+    super(message);
+    this.name = "KernelError";
+    this.code = code;
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
+/**
  * Lazily load three-bvh-csg.
  *
  * Returns the loaded module on success. On failure, returns null AND records
@@ -91,6 +113,23 @@ export interface SolidResult {
   mesh: THREE.BufferGeometry;
   bbox: BBox3;
   volumeMm3: number;
+  /**
+   * Optional opaque handle to the underlying replicad/OCCT BREP solid for
+   * results that came out of WASM-backed ops (booleans, fillet, chamfer).
+   * Carrying it forward lets the next op (e.g. fillet after cut) stay in
+   * BREP-land instead of round-tripping through mesh CSG.
+   *
+   * `unknown` here keeps the kernel free of a hard replicad type dep — the
+   * brep wrapper module narrows it via `as ReplicadSolid` at use sites.
+   * Absent / null when the result was produced by mesh-only paths.
+   */
+  brepSolid?: unknown;
+  /**
+   * Tag that callers (HTTP routes) propagate to clients via the
+   * `X-Boolean-Mode` response header so users know whether the precision
+   * was exact (`brep`) or reduced (`mesh-fallback`).
+   */
+  booleanMode?: "brep" | "mesh-fallback";
 }
 
 export interface Point2 {
@@ -315,16 +354,88 @@ export function booleanOp(
     op === "union" ? lib.ADDITION : op === "subtract" ? lib.SUBTRACTION : lib.INTERSECTION;
   const evaluator = new lib.Evaluator();
   const result = evaluator.evaluate(brushA, brushB, opCode) as { geometry: THREE.BufferGeometry };
-  return toSolid(result.geometry);
+  const out = toSolid(result.geometry);
+  out.booleanMode = "mesh-fallback";
+  return out;
+}
+
+/**
+ * BREP-preferring boolean entry point.
+ *
+ * If both inputs carry a `brepSolid` handle (i.e. they came from a primitive
+ * or prior op that produced exact geometry), this dispatches to
+ * `brep/replicad-wrapper.brepBoolean` which calls `solidA.cut/fuse/intersect`
+ * directly on OCCT BREP shapes. The returned `SolidResult.brepSolid` carries
+ * the result forward so subsequent fillet/chamfer/cut stay in BREP-land —
+ * proving the cut→fillet→export-STEP chain works.
+ *
+ * Falls back to the synchronous mesh-CSG `booleanOp` only when:
+ *   - the brep wrapper reports replicad as `not-installed` or `wasm-failed`, OR
+ *   - either input is mesh-only (no `brepSolid` handle attached), OR
+ *   - the BREP boolean throws (non-manifold inputs, OCCT internal error)
+ *
+ * In every fallback case the result is tagged `booleanMode: "mesh-fallback"`
+ * so HTTP routes can attach `X-Boolean-Mode: mesh-fallback` and the client
+ * UI can warn that precision is reduced.
+ *
+ * Caller signature stays compatible with `booleanOp` — accepts geometry or
+ * a wrapped SolidResult; the BREP-aware path is only taken when SolidResults
+ * are passed in (since BufferGeometry alone has no BREP companion).
+ */
+export async function booleanOpAsync(
+  a: THREE.BufferGeometry | SolidResult,
+  b: THREE.BufferGeometry | SolidResult,
+  op: BooleanOpKind
+): Promise<SolidResult> {
+  const aIsSolid = (a as SolidResult).mesh instanceof THREE.BufferGeometry;
+  const bIsSolid = (b as SolidResult).mesh instanceof THREE.BufferGeometry;
+  const aBrep = aIsSolid ? (a as SolidResult).brepSolid : undefined;
+  const bBrep = bIsSolid ? (b as SolidResult).brepSolid : undefined;
+
+  // Both inputs have BREP companions → try replicad-native cut/fuse/intersect.
+  if (aBrep && bBrep) {
+    try {
+      const { brepBoolean } = await import("./brep/replicad-wrapper");
+      const brepResult = await brepBoolean(aBrep, bBrep, op);
+      if (brepResult) {
+        // Defense-in-depth: assert the BREP path emitted a brepSolid handle
+        // so downstream ops (fillet) stay in BREP-land. Mesh-fallback paths
+        // explicitly clear it.
+        if (!brepResult.brepSolid) {
+          // Type-mismatch on output — treat as fallback rather than crash.
+          brepResult.booleanMode = "mesh-fallback";
+        } else {
+          brepResult.booleanMode = "brep";
+        }
+        return brepResult;
+      }
+    } catch {
+      // Fall through to mesh CSG below.
+    }
+  }
+
+  // Mesh CSG fallback — works on raw BufferGeometry too.
+  const out = booleanOp(a, b, op);
+  out.brepSolid = null;
+  out.booleanMode = "mesh-fallback";
+  return out;
 }
 
 /* ----------------------------------------------------------- fillet/chamfer */
 
 /**
- * Edge fillet (M1 stub — BREP-exact fillets require replicad/OCCT).
- * Current impl: approximate with a bevelled-extrude style subdivision on
- * the bounding geometry; returns input unchanged with a warning when the
- * approximation can't be applied. Signature is stable for M2 replacement.
+ * Edge fillet — REQUIRES the BREP kernel (replicad/OCCT WASM).
+ *
+ * Throws `KernelError` (code `kernel/fillet-requires-brep`) when called.
+ * Pure-mesh fillet has no edge topology, so silently returning the input
+ * solid would mark the feature as "applied" while geometry is unchanged —
+ * a footgun the UI can't surface. Callers (feature-timeline) catch by
+ * `err.name === "KernelError"` and add to that feature's `errors[]` array
+ * so the UI marks the feature as failed (red badge).
+ *
+ * Production path is `brepFillet` in `brep/replicad-wrapper.ts`, which
+ * probes WASM availability and routes to OCCT when present. This function
+ * is kept as the explicit "no-BREP-available" failure mode.
  */
 export function fillet(
   geom: THREE.BufferGeometry,
@@ -332,31 +443,26 @@ export function fillet(
   _edgeSelector?: (edgeIndex: number) => boolean
 ): SolidResult {
   if (edgeRadius <= 0) return toSolid(geom.clone());
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[cad-kernel] fillet: replicad not loaded, no geometry change applied (radius=" +
-      edgeRadius +
-      "mm). Install `replicad` + `replicad-opencascadejs` to enable BREP-exact fillets."
+  throw new KernelError(
+    `fillet requires BREP kernel; replicad WASM not available (radius=${edgeRadius}mm). ` +
+      "Install `replicad` + `replicad-opencascadejs` to enable BREP-exact fillets.",
+    "kernel/fillet-requires-brep"
   );
-  // Approximate: use `toNonIndexed` + smooth normals so downstream rendering
-  // at least gets softened shading. Real fillet needs edge topology.
-  const soft = geom.clone();
-  soft.computeVertexNormals();
-  return toSolid(soft);
 }
 
 /**
- * Edge chamfer (M1 stub — see fillet notes). Returns input + warning.
+ * Edge chamfer — REQUIRES the BREP kernel (replicad/OCCT WASM).
+ *
+ * Throws `KernelError` (code `kernel/chamfer-requires-brep`) when called.
+ * See `fillet` above for rationale. Production path is `brepChamfer`.
  */
 export function chamfer(geom: THREE.BufferGeometry, distance: number): SolidResult {
   if (distance <= 0) return toSolid(geom.clone());
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[cad-kernel] chamfer: replicad not loaded, no geometry change applied (distance=" +
-      distance +
-      "mm). Install `replicad` + `replicad-opencascadejs` to enable BREP-exact chamfers."
+  throw new KernelError(
+    `chamfer requires BREP kernel; replicad WASM not available (distance=${distance}mm). ` +
+      "Install `replicad` + `replicad-opencascadejs` to enable BREP-exact chamfers.",
+    "kernel/chamfer-requires-brep"
   );
-  return toSolid(geom.clone());
 }
 
 /* -------------------------------------------------------------- tessellate */
