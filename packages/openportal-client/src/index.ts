@@ -1,12 +1,15 @@
 import type {
   AuditLogEntry,
+  CallRecording,
   Channel,
+  GuestSession,
   Invitation,
   Meeting,
   Message,
   Org,
   OrgMember,
   OrgRole,
+  Ticket,
 } from "@opensoftware/openportal-core";
 import type { PortalAdapter } from "@opensoftware/openportal-core/adapter";
 
@@ -111,8 +114,50 @@ export function createRemoteAdapter(opts: RemoteAdapterOptions): PortalAdapter {
         );
       },
     },
+    tickets: {
+      list: (orgId, opts2) => {
+        const params = new URLSearchParams();
+        if (opts2?.status) params.set("status", opts2.status);
+        if (opts2?.limit) params.set("limit", String(opts2.limit));
+        const qs = params.toString();
+        return call<Ticket[]>(
+          "GET",
+          `/api/orgs/${orgId}/tickets${qs ? `?${qs}` : ""}`,
+        );
+      },
+      get: (ticketId) => call<Ticket | null>("GET", `/api/tickets/${ticketId}`),
+      create: (orgId, input) =>
+        call<Ticket>("POST", `/api/orgs/${orgId}/tickets`, input),
+      update: (ticketId, input) =>
+        call<Ticket>("PATCH", `/api/tickets/${ticketId}`, input),
+      listByExternalRef: (externalRef) =>
+        call<Ticket[]>(
+          "GET",
+          `/api/tickets?externalRef=${encodeURIComponent(externalRef)}`,
+        ),
+    },
+    guest: {
+      upsertSession: (input) =>
+        call<GuestSession>("POST", `/api/guest/sessions`, input),
+      getSession: (guestToken) =>
+        call<GuestSession | null>(
+          "GET",
+          `/api/guest/sessions/${encodeURIComponent(guestToken)}`,
+        ),
+      recordCallJoin: (guestToken, meetingId) =>
+        call<void>("POST", `/api/guest/sessions/${encodeURIComponent(guestToken)}/join`, {
+          meetingId,
+        }),
+      attachRecording: (input) =>
+        call<CallRecording>("POST", `/api/recordings`, input),
+      lockRecording: (recordingId) =>
+        call<CallRecording>("POST", `/api/recordings/${recordingId}/lock`),
+      listRecordings: (meetingId) =>
+        call<CallRecording[]>("GET", `/api/meetings/${meetingId}/recordings`),
+    },
   };
 }
+
 
 export class OpenPortalRemoteError extends Error {
   constructor(
