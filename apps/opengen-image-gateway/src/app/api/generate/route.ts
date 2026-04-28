@@ -7,7 +7,12 @@ import { eq } from "drizzle-orm";
 import { getProvider } from "@/lib/providers";
 import { CountryGatedError } from "@/lib/providers/types";
 import { checkQuota, incrementQuota } from "@/lib/quota-check";
-import { isUserClass, type ProviderId, type UserClass } from "@/lib/quotas";
+import {
+  isUserClass,
+  resolvePromotedClass,
+  type ProviderId,
+  type UserClass,
+} from "@/lib/quotas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +30,10 @@ const BodySchema = z.object({
 function resolveUserClass(req: NextRequest, bodyValue: string | undefined): UserClass {
   const headerValue = req.headers.get("x-user-class")?.toLowerCase().trim();
   const candidate = headerValue || bodyValue?.toLowerCase().trim() || "anonymous";
-  return isUserClass(candidate) ? candidate : "anonymous";
+  const base: UserClass = isUserClass(candidate) ? candidate : "anonymous";
+  const email =
+    req.headers.get("x-hub-user-email") ?? req.headers.get("x-user-email");
+  return resolvePromotedClass(email, base);
 }
 
 export async function POST(req: NextRequest) {

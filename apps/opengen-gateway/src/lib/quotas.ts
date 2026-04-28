@@ -97,6 +97,36 @@ export function isUserClass(s: string): s is UserClass {
   return (USER_CLASSES as readonly string[]).includes(s);
 }
 
+/**
+ * Email allowlist override — promotes specific users to a higher tier before
+ * the quota check runs. Configured via env vars (CSV, lowercase-compared):
+ *   OPENGEN_PRO_USERS         → emails on this list get "pro"
+ *   OPENGEN_ENTERPRISE_USERS  → emails on this list get "enterprise" (wins over pro)
+ *
+ * Returns the original `base` userClass when no override matches. Empty/unset
+ * env vars are no-ops, so this is safe to leave unconfigured.
+ */
+export function resolvePromotedClass(
+  email: string | null | undefined,
+  base: UserClass,
+): UserClass {
+  if (!email) return base;
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return base;
+  const parse = (csv: string | undefined): string[] =>
+    (csv ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  if (parse(process.env.OPENGEN_ENTERPRISE_USERS).includes(normalized)) {
+    return "enterprise";
+  }
+  if (parse(process.env.OPENGEN_PRO_USERS).includes(normalized)) {
+    return "pro";
+  }
+  return base;
+}
+
 export function periodKey(period: Period, when: Date = new Date()): string {
   const yyyy = when.getUTCFullYear();
   const mm = String(when.getUTCMonth() + 1).padStart(2, "0");

@@ -4,6 +4,7 @@ import {
   getClassQuota,
   getProviderCap,
   isUserClass,
+  resolvePromotedClass,
   type ProviderId,
   type UserClass,
   USER_CLASSES,
@@ -35,7 +36,12 @@ export async function GET(req: NextRequest) {
     (req.headers.get("x-user-class") ?? url.searchParams.get("userClass") ?? "anonymous")
       .toLowerCase()
       .trim();
-  const userClass: UserClass = isUserClass(userClassRaw) ? userClassRaw : "anonymous";
+  const baseClass: UserClass = isUserClass(userClassRaw) ? userClassRaw : "anonymous";
+  const email =
+    req.headers.get("x-hub-user-email") ??
+    req.headers.get("x-user-email") ??
+    url.searchParams.get("email");
+  const userClass: UserClass = resolvePromotedClass(email, baseClass);
 
   if (!userId) {
     return NextResponse.json(
