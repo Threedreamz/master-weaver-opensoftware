@@ -14,6 +14,8 @@ import { channelRoutes, messageRoutes } from "./routes/channels.js";
 import { meetingRoutes, meetingDetailRoutes } from "./routes/meetings.js";
 import { auditRoutes } from "./routes/audit.js";
 import { gdprRoutes } from "./routes/gdpr.js";
+import { ticketRoutes, ticketDetailRoutes } from "./routes/tickets.js";
+import { guestRoutes } from "./routes/guest.js";
 
 const app = new Hono();
 
@@ -36,6 +38,11 @@ app.onError(errorHandler);
 app.route("/api/health", healthRoutes);
 app.route("/api/appstore/manifest", appstoreManifestRoutes);
 
+// ---- Guest routes (JWT guest token, no workspace scope) ----
+// Mounted BEFORE the OIDC-protected /api router so guest JWTs don't get
+// rejected by the OIDC authMiddleware first.
+app.route("/api/guest", guestRoutes);
+
 // ---- Protected routes (auth + workspace) ----
 const protectedApp = new Hono();
 protectedApp.use("*", authMiddleware);
@@ -48,6 +55,8 @@ protectedApp.route("/orgs/:orgId/channels", channelRoutes);
 protectedApp.route("/orgs/:orgId/meetings", meetingRoutes);
 protectedApp.route("/orgs/:orgId/audit", auditRoutes);
 protectedApp.route("/orgs/:orgId/gdpr", gdprRoutes);
+protectedApp.route("/orgs/:orgId/tickets", ticketRoutes);
+protectedApp.route("/tickets", ticketDetailRoutes);
 protectedApp.route("/channels/:channelId/messages", messageRoutes);
 protectedApp.route("/meetings/:meetingId", meetingDetailRoutes);
 
