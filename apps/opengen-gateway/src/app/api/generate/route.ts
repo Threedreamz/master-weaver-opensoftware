@@ -6,6 +6,8 @@ import { genJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getProvider } from "@/lib/providers";
 import { CountryGatedError } from "@/lib/providers/types";
+import { checkQuota, incrementQuota } from "@/lib/quota-check";
+import { isUserClass, type ProviderId, type UserClass } from "@/lib/quotas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +18,15 @@ const BodySchema = z.object({
   inputPayload: z.record(z.string(), z.unknown()),
   countryCode: z.string().length(2).optional(),
   userId: z.string().min(1),
+  /** Optional in body — header X-User-Class wins when both are present. */
+  userClass: z.string().optional(),
 });
+
+function resolveUserClass(req: NextRequest, bodyValue: string | undefined): UserClass {
+  const headerValue = req.headers.get("x-user-class")?.toLowerCase().trim();
+  const candidate = headerValue || bodyValue?.toLowerCase().trim() || "anonymous";
+  return isUserClass(candidate) ? candidate : "anonymous";
+}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -38,6 +48,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { provider: providerId, inputType, inputPayload, countryCode, userId } = parsed.data;
+  const userClass = resolveUserClass(req, parsed.data.userClass);
+
   const provider = getProvider(providerId);
   if (!provider) {
     return NextResponse.json(
@@ -53,6 +65,35 @@ export async function POST(req: NextRequest) {
         message: `provider "${providerId}" is not configured on this gateway (missing API key or feature flag)`,
       },
       { status: 503 },
+    );
+  }
+
+  // Layer 1 + Layer 2 quota check BEFORE we touch the provider — refusing
+  // here is free, refusing after a paid call is not.
+  const quota = await checkQuota(userId, userClass, providerId as ProviderId);
+  if (!quota.ok) {
+    const retryAfterSec = Math.max(1, Math.ceil((quota.resetAt - Date.now()) / 1000));
+    return NextResponse.json(
+      {
+        error: "QUOTA_EXCEEDED",
+        scope: quota.scope,
+        period: quota.period,
+        limit: quota.limit,
+        used: quota.used,
+        resetAt: quota.resetAt,
+        message: quota.reason,
+        provider: providerId,
+        userClass,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(retryAfterSec),
+          "X-RateLimit-Limit": String(quota.limit),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(Math.ceil(quota.resetAt / 1000)),
+        },
+      },
     );
   }
 
@@ -75,7 +116,14 @@ export async function POST(req: NextRequest) {
       .update(genJobs)
       .set({ status: "running", providerJobId, updatedAt: new Date() })
       .where(eq(genJobs.id, jobId));
-    return NextResponse.json({ jobId, status: "running", providerJobId });
+
+    // Increment AFTER successful submit — failed submits don't count against
+    // the quota. This is conservative: a user could in theory exceed by 1 in a
+    // race with a parallel concurrent submit, since the check is non-locking.
+    // Acceptable: the global provider killswitch caps absolute spend.
+    await incrementQuota(userId, userClass, providerId as ProviderId, new Date());
+
+    return NextResponse.json({ jobId, status: "running", providerJobId, userClass });
   } catch (err) {
     if (err instanceof CountryGatedError) {
       await db

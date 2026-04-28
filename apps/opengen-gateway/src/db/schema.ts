@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const genJobs = sqliteTable("gen_jobs", {
@@ -24,3 +24,41 @@ export const genJobs = sqliteTable("gen_jobs", {
 
 export type GenJob = typeof genJobs.$inferSelect;
 export type NewGenJob = typeof genJobs.$inferInsert;
+
+/**
+ * Per-user-class and per-provider usage counters. Two scopes are tracked
+ * via the same table:
+ *   userId="*"  scope="provider" → global per-provider counter (Layer 2 cap)
+ *   userId=<u>  scope="user"     → per-user counter (Layer 1 cap)
+ *
+ * Composite uniqueness: (scope, user_id, provider, period, period_key).
+ */
+export const quotaUsage = sqliteTable(
+  "quota_usage",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").notNull(), // "user" | "provider"
+    userId: text("user_id").notNull(), // "*" for provider-scope rows
+    userClass: text("user_class").notNull().default(""),
+    provider: text("provider").notNull(),
+    period: text("period").notNull(), // "day" | "month"
+    periodKey: text("period_key").notNull(), // "YYYY-MM-DD" or "YYYY-MM"
+    count: integer("count").notNull().default(0),
+    costCents: integer("cost_cents").notNull().default(0),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    uniqueIndex("quota_usage_unique_idx").on(
+      t.scope,
+      t.userId,
+      t.provider,
+      t.period,
+      t.periodKey,
+    ),
+  ],
+);
+
+export type QuotaUsage = typeof quotaUsage.$inferSelect;
+export type NewQuotaUsage = typeof quotaUsage.$inferInsert;
