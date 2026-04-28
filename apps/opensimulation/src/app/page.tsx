@@ -1,3 +1,5 @@
+import CantileverDemo from "@/components/demo/cantilever-demo";
+
 type Domain = {
   slug: string;
   title: string;
@@ -14,12 +16,6 @@ const DOMAINS: Domain[] = [
   { slug: "cleaning", title: "Cleaning", blurb: "Ultrasonic + CIP cleaning-cycle simulation.", status: "ready" },
 ];
 
-// The opensimulation service is hub-proxied — interactive workbench lives in the
-// 3Dreamz hub at /tools/sim. The standalone root page is informational only:
-// listing per-user projects requires auth context the standalone shell doesn't
-// have, and the previous /admin/simulation/<slug> nav cards pointed at routes
-// that have never existed. Replace with a status board + clear pointer to the
-// hub UI so the page is no longer a dead-end.
 export default function RootPage() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-12 text-neutral-200 bg-neutral-950 min-h-screen">
@@ -28,16 +24,27 @@ export default function RootPage() {
       </div>
       <h1 className="mt-2 text-4xl font-semibold tracking-tight">OpenSimulation</h1>
       <p className="mt-2 text-neutral-400">
-        Physics + kinematics simulation backend. The interactive workbench is
-        served via the 3Dreamz hub.
+        Browser-native physics + kinematics simulator. The result below is
+        computed live by a TypeScript Cholesky FEA kernel — no plugins, no
+        cloud GPU, no sign-in.
       </p>
 
-      <div className="mt-6 rounded-lg border border-amber-700/40 bg-amber-900/10 p-5 text-sm">
-        <div className="font-medium text-amber-300">Open the workbench</div>
+      <section className="mt-8">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
+          Live demo · cantilever beam
+        </div>
+        <div className="mt-2">
+          <CantileverDemo />
+        </div>
+      </section>
+
+      <div className="mt-10 rounded-lg border border-amber-700/40 bg-amber-900/10 p-5 text-sm">
+        <div className="font-medium text-amber-300">Run your own simulation</div>
         <p className="mt-1 text-neutral-300">
-          OpenSimulation is hub-proxied. Sign in at the 3Dreamz hub and open
+          Sign in at the 3Dreamz hub and open
           <span className="font-mono text-amber-300"> /tools/sim</span> to
-          create a project and run a solve. Direct API access is documented at
+          create a project, import a part from OpenCAD, and run FEA, thermal,
+          kinematic, or cleaning solvers on it. API access is documented at
           <span className="font-mono text-amber-300"> /api/health</span>.
         </p>
       </div>

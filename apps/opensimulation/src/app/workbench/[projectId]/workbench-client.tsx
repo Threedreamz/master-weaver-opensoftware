@@ -1,6 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+
+// 3D viewers — dynamic-import + ssr:false because they touch WebGL on mount
+// and would crash Next.js page-data collection if evaluated server-side.
+const FeaViewer = dynamic(() => import("@/components/viewer/fea-viewer"), {
+  ssr: false,
+});
+const KinematicViewer = dynamic(
+  () => import("@/components/viewer/kinematic-viewer"),
+  { ssr: false },
+);
 
 type ProjectInfo = {
   id: string;
@@ -361,13 +372,24 @@ function ResultView({
   }
   const obj = data as Record<string, unknown>;
 
-  // Best-effort: split arrays into a sample table, scalars into a key-value
-  // grid. Unknown shapes fall back to JSON.
+  // 3D viewer dispatch: if the response carries the geometry + scalar fields
+  // we recognise, render the appropriate viewer above the numeric summary.
+  // Otherwise we fall through to the legacy JSON-grid view so unknown shapes
+  // (or solver errors that still 200) stay introspectable.
+  const viewer = render3DViewer(solverKey, obj);
+
+  // Hide arrays the viewer already consumed — saves a screen-full of numbers
+  // when the visualisation is showing the same data spatially.
+  const consumedKeys = viewer
+    ? new Set(["vertices", "surfaceIndices", "displacements", "vonMises", "temperatures", "transforms"])
+    : new Set<string>();
+
   const arrayEntries: Array<[string, number[]]> = [];
   const scalarEntries: Array<[string, unknown]> = [];
   const otherEntries: Array<[string, unknown]> = [];
 
   for (const [k, v] of Object.entries(obj)) {
+    if (consumedKeys.has(k)) continue;
     if (
       Array.isArray(v) &&
       v.length > 0 &&
@@ -390,6 +412,8 @@ function ResultView({
       <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
         Result · {solverKey}
       </div>
+
+      {viewer}
 
       {scalarEntries.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -425,6 +449,97 @@ function ResultView({
       ))}
     </div>
   );
+}
+
+/* -------------------------------------------------- 3D viewer dispatcher */
+
+/**
+ * Map a solver response to the appropriate 3D viewer when the payload carries
+ * the recognised geometry + scalar fields. Returns null when the response
+ * doesn't fit a known shape (caller falls back to JSON view).
+ *
+ * Known shapes:
+ *   fea-static → { vertices, surfaceIndices, displacements, vonMises }
+ *   thermal    → { vertices, surfaceIndices, temperatures }
+ *   kinematic  → { mode: "fwd", transforms: [{ position }, ...] }
+ */
+function render3DViewer(
+  solverKey: SolverKey,
+  obj: Record<string, unknown>,
+): React.ReactNode | null {
+  if (solverKey === "fea-static") {
+    const verts = numArray(obj.vertices);
+    const idx = numArray(obj.surfaceIndices);
+    const stress = numArray(obj.vonMises);
+    if (!verts || !idx || !stress) return null;
+    const disp = numArray(obj.displacements) ?? undefined;
+    return (
+      <FeaViewer
+        vertices={Float32Array.from(verts)}
+        indices={Uint32Array.from(idx)}
+        scalar={Float32Array.from(stress)}
+        displacement={disp ? Float32Array.from(disp) : undefined}
+        style={{ height: 360 }}
+      />
+    );
+  }
+
+  if (solverKey === "thermal") {
+    const verts = numArray(obj.vertices);
+    const idx = numArray(obj.surfaceIndices);
+    const temps = numArray(obj.temperatures);
+    if (!verts || !idx || !temps) return null;
+    return (
+      <FeaViewer
+        vertices={Float32Array.from(verts)}
+        indices={Uint32Array.from(idx)}
+        scalar={Float32Array.from(temps)}
+        style={{ height: 360 }}
+      />
+    );
+  }
+
+  if (solverKey === "kinematic") {
+    if (obj.mode !== "fwd") return null;
+    const transforms = obj.transforms;
+    if (!Array.isArray(transforms) || transforms.length === 0) return null;
+    const positions: Array<{ x: number; y: number; z: number }> = [];
+    for (const t of transforms) {
+      const p = (t as { position?: unknown }).position;
+      if (
+        p &&
+        typeof p === "object" &&
+        typeof (p as { x: unknown }).x === "number" &&
+        typeof (p as { y: unknown }).y === "number" &&
+        typeof (p as { z: unknown }).z === "number"
+      ) {
+        positions.push(p as { x: number; y: number; z: number });
+      }
+    }
+    if (positions.length < 2) return null;
+    const ee = obj.endEffector as
+      | { x: number; y: number; z: number }
+      | undefined;
+    return (
+      <KinematicViewer
+        jointPositions={positions}
+        target={ee}
+        mode="arm"
+        style={{ height: 360 }}
+      />
+    );
+  }
+
+  return null;
+}
+
+/** Coerce unknown into number[] when it actually is one. */
+function numArray(v: unknown): number[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  for (const x of v) {
+    if (typeof x !== "number") return null;
+  }
+  return v as number[];
 }
 
 function ArrayPreview({ name, values }: { name: string; values: number[] }) {

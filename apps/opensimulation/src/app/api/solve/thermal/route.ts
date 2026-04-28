@@ -12,6 +12,7 @@ import {
 } from "@/lib/kernel-types";
 import { solveThermalSteady } from "@/lib/solvers/thermal-steady";
 import { tetMeshFromInline, tetMeshFromMeshId } from "@/lib/mesh-storage";
+import { surfaceTrianglesOfTet } from "@/lib/sim/surface-extract";
 
 /* POST /api/solve/thermal — session-or-api-key */
 export async function POST(req: NextRequest) {
@@ -76,7 +77,12 @@ export async function POST(req: NextRequest) {
       boundaryConditions: bcs,
     });
 
+    // Include surface mesh + vertices so the client can render the temperature
+    // field as a 3D color-mapped surface without a second roundtrip.
+    const surfaceIndices = surfaceTrianglesOfTet(mesh.tets);
     const payload = {
+      vertices: Array.from(mesh.vertices),
+      surfaceIndices: Array.from(surfaceIndices),
       temperatures: Array.from(result.temperatures),
       minTempC: result.minTempC,
       maxTempC: result.maxTempC,

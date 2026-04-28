@@ -12,6 +12,7 @@ import {
 } from "@/lib/kernel-types";
 import { solveFeaStatic } from "@/lib/solvers/fea-static";
 import { tetMeshFromInline, tetMeshFromMeshId } from "@/lib/mesh-storage";
+import { surfaceTrianglesOfTet } from "@/lib/sim/surface-extract";
 
 /* POST /api/solve/fea-static — session-or-api-key */
 export async function POST(req: NextRequest) {
@@ -77,7 +78,13 @@ export async function POST(req: NextRequest) {
       boundaryConditions: bcs,
     });
 
+    // Include the surface mesh + vertex array so the client can render the
+    // result in 3D without a second roundtrip. We ship boundary triangles
+    // only — interior tets aren't visible — keeping the payload small.
+    const surfaceIndices = surfaceTrianglesOfTet(mesh.tets);
     const payload = {
+      vertices: Array.from(mesh.vertices),
+      surfaceIndices: Array.from(surfaceIndices),
       displacements: Array.from(result.displacements),
       vonMises: Array.from(result.vonMises),
       maxDisplacementMm: result.maxDisplacementMm,
