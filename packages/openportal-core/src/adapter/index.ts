@@ -1,17 +1,12 @@
 import type {
   AuditLogEntry,
-  CallRecording,
   Channel,
-  GuestSession,
   Invitation,
   Meeting,
   Message,
   Org,
   OrgMember,
   OrgRole,
-  Ticket,
-  TicketPriority,
-  TicketStatus,
 } from "../types/index.js";
 
 export interface PortalAdapter {
@@ -62,45 +57,6 @@ export interface PortalAdapter {
 
   audit: {
     list(orgId: string, opts?: { limit?: number }): Promise<AuditLogEntry[]>;
-  };
-
-  tickets: {
-    list(orgId: string, opts?: { status?: TicketStatus; limit?: number }): Promise<Ticket[]>;
-    get(ticketId: string): Promise<Ticket | null>;
-    create(
-      orgId: string,
-      input: {
-        title: string;
-        body?: string;
-        priority?: TicketPriority;
-        assigneeId?: string | null;
-        externalRef?: string | null;
-        guestEmail?: string | null;
-      },
-    ): Promise<Ticket>;
-    update(
-      ticketId: string,
-      input: Partial<Pick<Ticket, "title" | "body" | "status" | "priority" | "assigneeId">>,
-    ): Promise<Ticket>;
-    listByExternalRef(externalRef: string): Promise<Ticket[]>;
-  };
-
-  guest: {
-    upsertSession(input: {
-      guestToken: string;
-      orderId: string;
-      guestEmail?: string | null;
-      ttlSeconds?: number;
-    }): Promise<GuestSession>;
-    getSession(guestToken: string): Promise<GuestSession | null>;
-    recordCallJoin(guestToken: string, meetingId: string): Promise<void>;
-    attachRecording(input: {
-      meetingId: string;
-      r2Url: string;
-      durationMs?: string | null;
-    }): Promise<CallRecording>;
-    lockRecording(recordingId: string): Promise<CallRecording>;
-    listRecordings(meetingId: string): Promise<CallRecording[]>;
   };
 }
 

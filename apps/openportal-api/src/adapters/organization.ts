@@ -119,9 +119,7 @@ export function createOrganizationAdapter(
 
   return {
     toCanonical: toCanonicalOrganization,
-    // store.upsert generates the id when missing, so the optional `id` in the
-    // fromCanonical return is intentional — cast to satisfy the stricter interface.
-    fromCanonical: fromCanonicalOrganization as (c: CanonicalOrganization) => OrgRow,
+    fromCanonical: fromCanonicalOrganization,
 
     async list(query): Promise<OrganizationPage> {
       const { rows, nextCursor } = await store.list(query);

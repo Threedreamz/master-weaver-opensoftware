@@ -1,9 +1,7 @@
 import { and, desc, eq, lt } from "drizzle-orm";
 import type {
   AuditLogEntry,
-  CallRecording,
   Channel,
-  GuestSession,
   Invitation,
   Meeting,
   Message,
@@ -11,21 +9,17 @@ import type {
   OrgMember,
   OrgRole,
   PortalAdapter,
-  Ticket,
 } from "@opensoftware/openportal-core";
 import { generateInvitationToken, invitationExpiry } from "./local-helpers.js";
 import {
   auditLog,
-  callRecordings,
   channels,
   channelMembers,
-  guestSessions,
   invitations,
   meetings,
   messages,
   orgs,
   orgMembers,
-  tickets,
   users,
 } from "./schema.js";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -44,9 +38,6 @@ type ChannelRow = typeof channels.$inferSelect;
 type MessageRow = typeof messages.$inferSelect;
 type MeetingRow = typeof meetings.$inferSelect;
 type AuditRow = typeof auditLog.$inferSelect;
-type TicketRow = typeof tickets.$inferSelect;
-type GuestSessionRow = typeof guestSessions.$inferSelect;
-type CallRecordingRow = typeof callRecordings.$inferSelect;
 
 function toOrg(row: OrgRow): Org {
   return {
@@ -123,46 +114,6 @@ function toAudit(row: AuditRow): AuditLogEntry {
     action: row.action,
     target: row.target,
     metadata: (row.metadata ?? {}) as Record<string, unknown>,
-    createdAt: row.createdAt,
-  };
-}
-
-function toTicket(row: TicketRow): Ticket {
-  return {
-    id: row.id,
-    orgId: row.orgId,
-    title: row.title,
-    body: row.body,
-    status: row.status as Ticket["status"],
-    priority: row.priority as Ticket["priority"],
-    assigneeId: row.assigneeId ?? null,
-    externalRef: row.externalRef ?? null,
-    guestEmail: row.guestEmail ?? null,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    closedAt: row.closedAt ?? null,
-  };
-}
-
-function toGuestSession(row: GuestSessionRow): GuestSession {
-  return {
-    id: row.id,
-    guestToken: row.guestToken,
-    orderId: row.orderId,
-    guestEmail: row.guestEmail ?? null,
-    expiresAt: row.expiresAt,
-    joinedCallId: row.joinedCallId ?? null,
-    createdAt: row.createdAt,
-  };
-}
-
-function toCallRecording(row: CallRecordingRow): CallRecording {
-  return {
-    id: row.id,
-    meetingId: row.meetingId,
-    r2Url: row.r2Url,
-    gobdLockedAt: row.gobdLockedAt ?? null,
-    durationMs: row.durationMs ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -425,134 +376,5 @@ export function createLocalAdapter(opts: LocalAdapterOptions): PortalAdapter {
         return rows.map(toAudit);
       },
     },
-
-    tickets: {
-      async list(orgId, opts2) {
-        const limit = opts2?.limit ?? 100;
-        const conditions = opts2?.status
-          ? and(eq(tickets.orgId, orgId), eq(tickets.status, opts2.status as string))
-          : eq(tickets.orgId, orgId);
-        const rows = await db
-          .select()
-          .from(tickets)
-          .where(conditions)
-          .orderBy(desc(tickets.createdAt))
-          .limit(limit);
-        return rows.map(toTicket);
-      },
-      async get(ticketId) {
-        const row = await db.query.tickets.findFirst({
-          where: eq(tickets.id, ticketId),
-        });
-        return row ? toTicket(row) : null;
-      },
-      async create(orgId, input) {
-        const [row] = await db
-          .insert(tickets)
-          .values({
-            orgId,
-            title: input.title,
-            body: input.body ?? "",
-            priority: (input.priority ?? "normal") as string,
-            assigneeId: input.assigneeId ?? null,
-            externalRef: input.externalRef ?? null,
-            guestEmail: input.guestEmail ?? null,
-          })
-          .returning();
-        await writeAudit(orgId, "ticket.created", row.id, { title: input.title });
-        return toTicket(row);
-      },
-      async update(ticketId, input) {
-        const now = new Date();
-        const closedAt =
-          input.status === "closed" || input.status === "resolved" ? now : undefined;
-        const [row] = await db
-          .update(tickets)
-          .set({
-            ...input,
-            updatedAt: now,
-            ...(closedAt ? { closedAt } : {}),
-          })
-          .where(eq(tickets.id, ticketId))
-          .returning();
-        return toTicket(row);
-      },
-      async listByExternalRef(externalRef) {
-        const rows = await db
-          .select()
-          .from(tickets)
-          .where(eq(tickets.externalRef, externalRef))
-          .orderBy(desc(tickets.createdAt));
-        return rows.map(toTicket);
-      },
-    },
-
-    guest: {
-      async upsertSession(input) {
-        const ttl = input.ttlSeconds ?? 86400;
-        const expiresAt = new Date(Date.now() + ttl * 1000);
-        const existing = await db.query.guestSessions.findFirst({
-          where: eq(guestSessions.guestToken, input.guestToken),
-        });
-        if (existing) {
-          const [row] = await db
-            .update(guestSessions)
-            .set({ expiresAt, guestEmail: input.guestEmail ?? existing.guestEmail })
-            .where(eq(guestSessions.id, existing.id))
-            .returning();
-          return toGuestSession(row);
-        }
-        const [row] = await db
-          .insert(guestSessions)
-          .values({
-            guestToken: input.guestToken,
-            orderId: input.orderId,
-            guestEmail: input.guestEmail ?? null,
-            expiresAt,
-          })
-          .returning();
-        return toGuestSession(row);
-      },
-      async getSession(guestToken) {
-        const row = await db.query.guestSessions.findFirst({
-          where: eq(guestSessions.guestToken, guestToken),
-        });
-        return row ? toGuestSession(row) : null;
-      },
-      async recordCallJoin(guestToken, meetingId) {
-        await db
-          .update(guestSessions)
-          .set({ joinedCallId: meetingId })
-          .where(eq(guestSessions.guestToken, guestToken));
-      },
-      async attachRecording(input) {
-        const [row] = await db
-          .insert(callRecordings)
-          .values({
-            meetingId: input.meetingId,
-            r2Url: input.r2Url,
-            durationMs: input.durationMs ?? null,
-          })
-          .returning();
-        return toCallRecording(row);
-      },
-      async lockRecording(recordingId) {
-        const [row] = await db
-          .update(callRecordings)
-          .set({ gobdLockedAt: new Date() })
-          .where(eq(callRecordings.id, recordingId))
-          .returning();
-        return toCallRecording(row);
-      },
-      async listRecordings(meetingId) {
-        const rows = await db
-          .select()
-          .from(callRecordings)
-          .where(eq(callRecordings.meetingId, meetingId))
-          .orderBy(desc(callRecordings.createdAt));
-        return rows.map(toCallRecording);
-      },
-    },
   };
 }
-

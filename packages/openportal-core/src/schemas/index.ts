@@ -31,30 +31,6 @@ export const startMeetingSchema = z.object({
   title: z.string().min(1).max(200),
 });
 
-export const ticketStatusSchema = z.enum(["open", "in_progress", "resolved", "closed"]);
-export const ticketPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
-
-export const createTicketSchema = z.object({
-  title: z.string().min(1).max(200),
-  body: z.string().max(10000).default(""),
-  priority: ticketPrioritySchema.default("normal"),
-  assigneeId: z.string().uuid().nullable().default(null),
-  externalRef: z.string().max(200).nullable().default(null),
-  guestEmail: z.string().email().nullable().default(null),
-});
-
-export const updateTicketSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  body: z.string().max(10000).optional(),
-  status: ticketStatusSchema.optional(),
-  priority: ticketPrioritySchema.optional(),
-  assigneeId: z.string().uuid().nullable().optional(),
-});
-
-export const joinCallSchema = z.object({
-  orderId: z.string().min(1),
-});
-
 export const extractedTaskSchema = z.object({
   assignee: z.string().email().nullable(),
   title: z.string().min(1),

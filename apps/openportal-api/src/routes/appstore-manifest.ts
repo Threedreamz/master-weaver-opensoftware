@@ -30,12 +30,6 @@ appstoreManifestRoutes.get("/", (c) => {
         icon: "Users",
         permission: "teams.view",
       },
-      {
-        label: "Tickets",
-        href: "/admin/teams/tickets",
-        icon: "Ticket",
-        permission: "tickets.view",
-      },
     ],
     dashboards: [
       {
@@ -54,20 +48,6 @@ appstoreManifestRoutes.get("/", (c) => {
       },
     ],
     widgets: [
-      {
-        id: "active-calls",
-        mode: "local",
-        dataFetch: "/api/orgs/current/meetings?status=active&limit=5",
-        size: "2x1",
-        title: "Aktive Calls",
-      },
-      {
-        id: "open-tickets",
-        mode: "local",
-        dataFetch: "/api/orgs/current/tickets?status=open&limit=10",
-        size: "2x1",
-        title: "Offene Tickets",
-      },
       {
         id: "active-meeting",
         mode: "local",
@@ -89,20 +69,12 @@ appstoreManifestRoutes.get("/", (c) => {
         size: "2x1",
         title: "Letzte Audit-Einträge",
       },
-      {
-        id: "order-call-strip",
-        mode: "local",
-        dataFetch: "/api/guest/my-orders?externalRef=:id",
-        size: "2x2",
-        title: "Call & Chat zur Anfrage",
-        paramBinding: { id: "route.params.id" },
-      },
     ],
     injections: [
       {
         host: "etd",
         targetRoute: "/admin",
-        widgetId: "active-calls",
+        widgetId: "active-meeting",
         slot: "dashboard-top",
       },
       {
@@ -110,12 +82,6 @@ appstoreManifestRoutes.get("/", (c) => {
         targetRoute: "/admin/customers",
         widgetId: "pending-invitations",
         slot: "sidebar-top",
-      },
-      {
-        host: "etd",
-        targetRoute: "/admin/parts-requests/[id]",
-        widgetId: "order-call-strip",
-        slot: "right-panel",
       },
     ],
     // Hints for the admin panel about how to consume this service.

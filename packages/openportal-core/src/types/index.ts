@@ -1,42 +1,5 @@
 export type OrgRole = "owner" | "admin" | "member" | "guest";
 
-export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
-export type TicketPriority = "low" | "normal" | "high" | "urgent";
-
-export interface Ticket {
-  id: string;
-  orgId: string;
-  title: string;
-  body: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  assigneeId: string | null;
-  externalRef: string | null;
-  guestEmail: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  closedAt: Date | null;
-}
-
-export interface GuestSession {
-  id: string;
-  guestToken: string;
-  orderId: string;
-  guestEmail: string | null;
-  expiresAt: Date;
-  joinedCallId: string | null;
-  createdAt: Date;
-}
-
-export interface CallRecording {
-  id: string;
-  meetingId: string;
-  r2Url: string;
-  gobdLockedAt: Date | null;
-  durationMs: string | null;
-  createdAt: Date;
-}
-
 export interface Org {
   id: string;
   workspaceId: string;
