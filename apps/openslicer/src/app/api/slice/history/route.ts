@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { slicerHistory, slicerModels, slicerProfiles, slicerGcodes } from "../../../../db/schema";
+import { resolveUser } from "../../../../lib/internal-user";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   // Fetch all history with joined model, profile, and gcode data
   const rows = db
     .select({

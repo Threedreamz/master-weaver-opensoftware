@@ -8,6 +8,7 @@ import {
   computeMeshMetrics,
 } from "@opensoftware/slicer-core";
 import { createModel, updateModel } from "../../../../db/queries/models";
+import { resolveUser } from "../../../../lib/internal-user";
 
 const UPLOAD_DIR = join(process.cwd(), "data", "models");
 
@@ -21,6 +22,9 @@ const UPLOAD_DIR = join(process.cwd(), "data", "models");
  * and returns the model record with mesh analysis.
  */
 export async function POST(request: Request) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   try {
     const body = await request.json();
     const { scadSource, parameters, filename } = body as {

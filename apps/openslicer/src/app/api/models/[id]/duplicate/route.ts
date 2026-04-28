@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { copyFile } from "node:fs/promises";
 import { join, dirname, extname, basename } from "node:path";
 import { getModelById, createModel } from "../../../../../db/queries/models";
+import { resolveUser } from "../../../../../lib/internal-user";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   const { id } = await params;
   const original = getModelById(id);
 

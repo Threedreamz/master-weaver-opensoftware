@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { parseModel, computeMeshMetrics } from "@opensoftware/slicer-core";
 import { createModel, updateModel } from "../../../../db/queries/models";
+import { resolveUser } from "../../../../lib/internal-user";
 
 // Node runtime — better-sqlite3 + fs/promises are not available in edge.
 // maxDuration allows ~500MB STL ingest + mesh parse without Railway's edge
@@ -15,6 +16,9 @@ export const maxDuration = 300;
 const UPLOAD_DIR = join(process.cwd(), "data", "models");
 
 export async function POST(request: Request) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file");

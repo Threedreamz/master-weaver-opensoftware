@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { getModelById } from "../../../../../db/queries/models";
+import { resolveUser } from "../../../../../lib/internal-user";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   try {
     const { id } = await params;
     const model = await getModelById(id);

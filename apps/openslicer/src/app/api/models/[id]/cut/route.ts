@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { parseSTL, computeMeshMetrics } from "@opensoftware/slicer-core";
 import type { Triangle, MeshData } from "@opensoftware/slicer-core";
 import { getModelById, createModel, updateModel } from "../../../../../db/queries/models";
+import { resolveUser } from "../../../../../lib/internal-user";
 
 const UPLOAD_DIR = join(process.cwd(), "data", "models");
 
@@ -239,6 +240,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   try {
     const { id } = await params;
     const body = await request.json();

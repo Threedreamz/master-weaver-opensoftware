@@ -183,13 +183,8 @@ export default function CallPage() {
     <main className="flex h-screen flex-col bg-[#09090b]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#27272a] bg-[#18181b] px-4 py-2.5 text-sm text-zinc-200">
         <div className="flex items-baseline gap-3">
-          <span className="text-xs uppercase tracking-widest text-zinc-500">
-            OpenPortal
-          </span>
-          <span className="text-zinc-600">/</span>
-          <code className="rounded bg-[#27272a] px-2 py-0.5 font-mono text-xs text-zinc-200">
-            {roomName}
-          </code>
+          <span className="font-medium text-zinc-100">OpenPortal</span>
+          <code className="font-mono text-xs text-zinc-500">{roomName}</code>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <label className="flex items-center gap-2">
@@ -244,15 +239,11 @@ export default function CallPage() {
         </div>
       ) : !scriptLoaded ? (
         <div className="border-b border-[#27272a] bg-[#18181b] px-4 py-1.5 text-xs text-zinc-500">
-          Loading Jitsi from {JITSI_DOMAIN}…
+          Loading…
         </div>
       ) : !ready ? (
         <div className="border-b border-[#27272a] bg-[#18181b] px-4 py-1.5 text-xs text-zinc-500">
-          Background controls activate once you join. If Jitsi shows
-          {" "}
-          <span className="text-zinc-300">&ldquo;asking to join meeting&rdquo;</span>,
-          click <span className="text-zinc-300">Log-in</span> in that screen once &mdash;
-          this is anti-abuse moderator auth (one time per browser).
+          Background controls activate once you join.
         </div>
       ) : null}
 

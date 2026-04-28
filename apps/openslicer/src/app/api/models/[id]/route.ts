@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { unlink } from "node:fs/promises";
 import { getModelById, deleteModel } from "../../../../db/queries/models";
+import { resolveUser } from "../../../../lib/internal-user";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   const { id } = await params;
   const model = getModelById(id);
 
@@ -17,9 +21,12 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   const { id } = await params;
   const model = getModelById(id);
 

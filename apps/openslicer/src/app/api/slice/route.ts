@@ -17,6 +17,7 @@ import { getFilamentProfileById } from "../../../db/queries/filament-profiles";
 import { createHistory, updateHistoryStatus, type SlicerHistoryRow } from "../../../db/queries/history";
 import { db } from "../../../db";
 import { slicerGcodes } from "../../../db/schema";
+import { resolveUser } from "../../../lib/internal-user";
 
 const DATA_DIR = resolve(process.cwd(), "data");
 const GCODES_DIR = join(DATA_DIR, "gcodes");
@@ -31,6 +32,9 @@ interface SliceRequestBody {
 }
 
 export async function POST(request: Request) {
+  const u = await resolveUser(request);
+  if (u instanceof NextResponse) return u;
+
   let body: SliceRequestBody;
   try {
     body = await request.json();

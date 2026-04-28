@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import { zipSync, unzipSync } from "fflate";
 import { getModelById } from "../../../../db/queries/models";
+import { resolveUser } from "../../../../lib/internal-user";
 
 export const dynamic = "force-dynamic";
 

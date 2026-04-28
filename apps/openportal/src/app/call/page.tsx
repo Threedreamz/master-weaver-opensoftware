@@ -24,29 +24,22 @@ export default function CallLanding() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
+    <main className="mx-auto max-w-md px-6 py-20">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
-          OpenSoftware &middot; OpenPortal
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Join a call
+        </h1>
         <UserChip />
       </div>
-      <h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
-        Join a call
-      </h1>
-      <p className="mt-2 text-sm text-[var(--text-secondary)]">
-        Type a room name to join, or leave it empty for a random one. Share the link from
-        the next page with anyone you want in the call.
-      </p>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-8 flex gap-2">
         <input
           autoFocus
           type="text"
           value={room}
           onChange={(e) => setRoom(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && join()}
-          placeholder="e.g. team-standup or leave empty"
+          placeholder="Room name or leave empty"
           className="flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-brand)] focus:outline-none"
         />
         <button
@@ -59,29 +52,14 @@ export default function CallLanding() {
       </div>
 
       <p className="mt-6 text-xs text-[var(--text-muted)]">
-        Calls run on{" "}
-        <a
-          href="https://framatalk.org"
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-2 hover:text-[var(--text-secondary)]"
-        >
-          framatalk.org
-        </a>{" "}
-        (open Jitsi by Framasoft). Anyone with the link can join &mdash; use a hard-to-guess
-        room name.
-      </p>
-      <p className="mt-2 text-xs text-[var(--text-muted)]">
-        First time? If you see &ldquo;asking to join meeting&rdquo;, click{" "}
-        <span className="text-[var(--text-secondary)]">Log-in</span> on the Jitsi screen
-        once &mdash; that grants you moderator status (one-time per browser, anti-abuse).
+        Anyone with the link can join. Use a hard-to-guess name.
       </p>
 
       <Link
         href="/"
-        className="mt-12 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+        className="mt-12 inline-block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       >
-        &larr; Back to portal
+        &larr; Back
       </Link>
     </main>
   );

@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "OpenPortal · OpenSoftware",
-  description: "Generic team and organization portal for the OpenSoftware ecosystem.",
+  title: "OpenPortal",
+  description: "Connect with anyone over video.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
