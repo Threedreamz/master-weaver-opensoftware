@@ -56,5 +56,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|_vercel|.*\\..*).*)" ],
+  runtime: "nodejs",
+  matcher: ["/((?!api/auth|api/health|_next|_vercel|.*\\..*).*)"],
 };

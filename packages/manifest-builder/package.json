@@ -1,0 +1,24 @@
+{
+  "name": "@opensoftware/manifest-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed builder for OpenSoftware AppStore manifests. Wraps the JSON shape from .claude/rules/bubble-conventions.md (sidebar/dashboards/widgets/injections) with a single defineManifest() helper that works in both Next.js App-Router routes and Hono.",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint ok'"
+  },
+  "devDependencies": {
+    "@opensoftware/tsconfig": "workspace:*",
+    "typescript": "^5.9.0"
+  }
+}

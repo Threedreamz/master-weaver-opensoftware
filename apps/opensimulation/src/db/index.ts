@@ -46,4 +46,8 @@ function openWithRetry(path: string, maxAttempts = 20): Database.Database {
 const sqlite = openWithRetry(dbPath);
 
 export const db = drizzle(sqlite, { schema });
-export { schema };
+// `sqlite` is exported so instrumentation.ts can fall through to a raw
+// journal-walk recovery when drizzle's migrate() bails on "already exists"
+// (per .claude/rules/known-pitfalls.md → 2026-04-28 "Drizzle migrate() bails
+// on first 'already exists'"). Application code should keep using `db`.
+export { schema, sqlite };

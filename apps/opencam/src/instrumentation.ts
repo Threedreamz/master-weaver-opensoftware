@@ -49,13 +49,51 @@ export async function register() {
       const isAlreadyExists =
         cause?.code === "SQLITE_ERROR" &&
         (causeMsg.includes("already exists") || causeMsg.includes("duplicate column"));
-      if (isAlreadyExists) {
-        console.warn(
-          `[opencam:boot] migration idempotency skip — schema already present on volume (${causeMsg.split("\n")[0]})`,
-        );
-      } else {
+      if (!isAlreadyExists) {
         throw migErr;
       }
+      // Volume has schema from a prior boot but `__drizzle_migrations` tracker
+      // was never seeded (or is out of sync). Drizzle's migrate() bails on the
+      // first "already exists" error so any LATER migration silently never
+      // runs — that was the prior `console.warn(...)` skip. Recovery: walk
+      // _journal.json in order and apply each migration idempotently via raw
+      // SQL — CREATE TABLE/INDEX → IF NOT EXISTS, ignore "duplicate column"
+      // on ALTER TABLE. See .claude/rules/known-pitfalls.md → 2026-04-28
+      // "Drizzle migrate() bails on first 'already exists'".
+      console.warn(
+        `[opencam:boot] migrate() bailed on existing schema — re-applying pending migrations idempotently`,
+      );
+      const { readFileSync } = await import("fs");
+      const { join } = await import("path");
+      const { sqlite } = await import("./db/index");
+      const journal = JSON.parse(
+        readFileSync(join(migrationsFolder, "meta", "_journal.json"), "utf8"),
+      ) as { entries: Array<{ idx: number; tag: string }> };
+      sqlite.exec(
+        "CREATE TABLE IF NOT EXISTS `__drizzle_migrations` (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)",
+      );
+      for (const entry of journal.entries) {
+        const rawSql = readFileSync(join(migrationsFolder, entry.tag + ".sql"), "utf8");
+        const idempotent = rawSql
+          .replace(/CREATE TABLE\s+`/gi, "CREATE TABLE IF NOT EXISTS `")
+          .replace(/CREATE UNIQUE INDEX\s+`/gi, "CREATE UNIQUE INDEX IF NOT EXISTS `")
+          .replace(/CREATE INDEX\s+(?!IF NOT EXISTS)`/gi, "CREATE INDEX IF NOT EXISTS `");
+        const statements = idempotent
+          .split(/-->\s*statement-breakpoint/i)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        for (const stmt of statements) {
+          try {
+            sqlite.exec(stmt);
+          } catch (e) {
+            const m = (e as Error).message ?? "";
+            if (m.includes("duplicate column")) continue;
+            throw e;
+          }
+        }
+        console.log(`[opencam:boot] applied migration ${entry.tag} (idempotent path)`);
+      }
+      console.log(`[opencam:boot] all migrations applied via recovery path`);
     }
 
     // Seed built-in post-processors (grbl/marlin/fanuc/linuxcnc/haas). Stable

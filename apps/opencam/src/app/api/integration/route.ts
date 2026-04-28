@@ -38,7 +38,14 @@ export async function GET() {
     },
     capabilities: {
       operationKinds: ["face", "contour", "pocket", "drill", "adaptive", "3d-parallel"],
-      implementedKinds: ["face", "contour", "drill", "adaptive"], // pocket requires jscut optional-dep; 3d-parallel deferred to M3.5
+      // pocket is fully implemented in src/lib/ops/pocket.ts via the kernel's
+      // pure-JS offsetPolygon2D — jscut is NOT required (legacy comment was
+      // misleading). adaptive ships in M2 as the simplified morphed-spiral
+      // (see src/lib/ops/adaptive.ts SIMPLIFICATION NOTICE). 3d-parallel is
+      // the only kind genuinely deferred — generate route returns 422
+      // feature_deferred (milestone M3.5) for it.
+      // TODO(M3.5): add 3d-parallel waterline toolpath generator.
+      implementedKinds: ["face", "contour", "pocket", "drill", "adaptive"],
       postProcessorDialects: ["grbl", "marlin", "fanuc", "linuxcnc", "haas"],
       opencadImportFormats: ["stl"],                             // step deferred to M2
       streamingUpload: true,
