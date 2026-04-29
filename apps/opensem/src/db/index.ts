@@ -1,33 +1,94 @@
-import * as schema from "./schema";
+// opensem standalone Postgres DB client.
+//
+// opensem is the OpenSoftware AppStore service for Search Intelligence + Organic
+// Intelligence + Paid Ads. It owns its own Postgres schema (no longer shares
+// @opensoftware/db, which is SQLite-only). Schema is in ./postgres-schema.ts.
+//
+// Lazy-initialized via Proxy so module evaluation never crashes during
+// `next build` page-data collection (Turbopack workers without DATABASE_URL
+// would otherwise blow up at import time).
+
+import * as schema from "./postgres-schema";
 
 export { schema };
 
-// Use `any` for types to avoid importing better-sqlite3 at the top level.
-// The native module is loaded lazily in init() to prevent crashes when the
-// .node binary isn't available (e.g. wrong architecture or missing from runtime).
 type DbType = any;
-type SqliteType = any;
 
 let _db: DbType | null = null;
-let _sqlite: SqliteType | null = null;
+let _initError: Error | null = null;
+let _loggedInitFailure = false;
 
-function init() {
-  if (!_db) {
-    try {
-      // Lazy-require better-sqlite3 to avoid top-level native module crash
-      const Database = require("better-sqlite3");
-      const { drizzle } = require("drizzle-orm/better-sqlite3");
-      const dbPath = (process.env.DATABASE_URL || process.env.DB_PATH || "./data/opensem.db").replace(/^file:/, "");
-      _sqlite = new Database(dbPath);
-      _sqlite.pragma("journal_mode = WAL");
-      _sqlite.pragma("foreign_keys = ON");
-      _db = drizzle(_sqlite, { schema });
-    } catch (err) {
-      console.error("[opensem] Failed to initialize SQLite:", (err as Error).message);
-      throw err;
+function getDbPostgres(): DbType {
+  try {
+    const { drizzle } = require("drizzle-orm/node-postgres");
+    const { Pool } = require("pg");
+
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is required (postgresql:// connection string)");
     }
+
+    const pool = new Pool({
+      connectionString,
+      max: 10,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    _db = drizzle(pool, { schema });
+    _initError = null;
+    return _db;
+  } catch (err) {
+    _initError = err instanceof Error ? err : new Error(String(err));
+    if (!_loggedInitFailure) {
+      _loggedInitFailure = true;
+      console.error(`[opensem:db] initialization failed: ${_initError.message}`);
+    }
+    return makeNullDb(() => _initError?.message ?? "not initialized");
   }
-  return { db: _db, sqlite: _sqlite! };
+}
+
+function makeNullDb(reason: () => string): DbType {
+  const handler: ProxyHandler<any> = {
+    get(_target, prop) {
+      if (prop === "then") {
+        return (_resolve: any, reject: any) => {
+          const err = new Error(`[opensem:db] unavailable: ${reason()}`);
+          if (typeof reject === "function") reject(err);
+          return Promise.reject(err);
+        };
+      }
+      if (prop === "catch") {
+        return (onRejected: any) => {
+          const err = new Error(`[opensem:db] unavailable: ${reason()}`);
+          try {
+            const out = typeof onRejected === "function" ? onRejected(err) : err;
+            return Promise.resolve(out);
+          } catch (e) {
+            return Promise.reject(e);
+          }
+        };
+      }
+      if (prop === "finally") {
+        return (onFinally: any) => {
+          try {
+            if (typeof onFinally === "function") onFinally();
+          } catch {}
+          return Promise.reject(new Error(`[opensem:db] unavailable: ${reason()}`));
+        };
+      }
+      return (..._args: any[]) => proxy;
+    },
+    apply() {
+      return proxy;
+    },
+  };
+  const proxy: any = new Proxy(function () {} as any, handler);
+  return proxy;
+}
+
+function getDb(): DbType {
+  if (!_db) return getDbPostgres();
+  return _db;
 }
 
 // During Docker build, export a stub that won't crash DrizzleAdapter
@@ -35,10 +96,22 @@ const isBuild = !!process.env.DOCKER_BUILD;
 
 export const db: DbType = isBuild
   ? (new Proxy({}, { get: () => () => [] }) as unknown as DbType)
-  : new Proxy({} as DbType, { get: (_t, p) => (init().db as any)[p] });
-
-export const sqlite: SqliteType = isBuild
-  ? ({} as SqliteType)
-  : new Proxy({} as SqliteType, { get: (_t, p) => (init().sqlite as any)[p] });
+  : new Proxy({} as DbType, {
+      get(_t, prop, receiver) {
+        try {
+          return Reflect.get(getDb(), prop, receiver);
+        } catch (err) {
+          _initError = err instanceof Error ? err : new Error(String(err));
+          if (!_loggedInitFailure) {
+            _loggedInitFailure = true;
+            console.error(`[opensem:db] proxy access failed: ${_initError.message}`);
+          }
+          const nullDb = makeNullDb(() => _initError?.message ?? "not initialized");
+          return Reflect.get(nullDb, prop, receiver);
+        }
+      },
+    });
 
 export type DbClient = typeof db;
+
+export { getDb };

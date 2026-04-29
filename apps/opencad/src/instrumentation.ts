@@ -88,12 +88,60 @@ export async function register() {
         : resolve(process.cwd(), "drizzle/migrations");
     console.log(`[opencad:boot] running migrations from ${migrationsFolder}`);
 
-    // Drizzle tracks applied migrations in __drizzle_migrations and skips
-    // anything already journaled. If a CREATE TABLE / column actually fails,
-    // that's a real inconsistency — let it surface instead of swallowing it
-    // as "already applied" (which silently leaves later migrations unrun).
-    migrate(db as never, { migrationsFolder });
-    console.log(`[opencad:boot] migrations complete`);
+    try {
+      migrate(db as never, { migrationsFolder });
+      console.log(`[opencad:boot] migrations complete`);
+    } catch (migErr) {
+      const cause = (migErr as { cause?: { code?: string; message?: string } })?.cause;
+      const causeMsg = cause?.message ?? "";
+      const isAlreadyExists =
+        cause?.code === "SQLITE_ERROR" &&
+        (causeMsg.includes("already exists") || causeMsg.includes("duplicate column"));
+      if (!isAlreadyExists) {
+        throw migErr;
+      }
+      // Volume has schema from a prior boot but `__drizzle_migrations` tracker
+      // was never seeded (or is out of sync). Drizzle's migrate() bails on the
+      // first "already exists" error so any LATER migration (e.g. 0001_*) never
+      // runs. Recovery: walk _journal.json in order and apply each migration
+      // idempotently via raw SQL — CREATE TABLE/INDEX → IF NOT EXISTS, ignore
+      // "duplicate column" on ALTER TABLE. See known-pitfalls 2026-04-28
+      // "Drizzle migrate() bails on first 'already exists'".
+      console.warn(
+        `[opencad:boot] migrate() bailed on existing schema — re-applying pending migrations idempotently`,
+      );
+      const { readFileSync } = await import("fs");
+      const { join } = await import("path");
+      const { sqlite } = await import("./db/index");
+      const journal = JSON.parse(
+        readFileSync(join(migrationsFolder, "meta", "_journal.json"), "utf8"),
+      ) as { entries: Array<{ idx: number; tag: string }> };
+      sqlite.exec(
+        "CREATE TABLE IF NOT EXISTS `__drizzle_migrations` (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)",
+      );
+      for (const entry of journal.entries) {
+        const rawSql = readFileSync(join(migrationsFolder, entry.tag + ".sql"), "utf8");
+        const idempotent = rawSql
+          .replace(/CREATE TABLE\s+`/gi, "CREATE TABLE IF NOT EXISTS `")
+          .replace(/CREATE UNIQUE INDEX\s+`/gi, "CREATE UNIQUE INDEX IF NOT EXISTS `")
+          .replace(/CREATE INDEX\s+(?!IF NOT EXISTS)`/gi, "CREATE INDEX IF NOT EXISTS `");
+        const statements = idempotent
+          .split(/-->\s*statement-breakpoint/i)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        for (const stmt of statements) {
+          try {
+            sqlite.exec(stmt);
+          } catch (e) {
+            const m = (e as Error).message ?? "";
+            if (m.includes("duplicate column")) continue;
+            throw e;
+          }
+        }
+        console.log(`[opencad:boot] applied migration ${entry.tag} (idempotent path)`);
+      }
+      console.log(`[opencad:boot] all migrations applied via recovery path`);
+    }
   } catch (err) {
     console.error(`[opencad:boot] FATAL — db init failed:`, err);
     throw err;

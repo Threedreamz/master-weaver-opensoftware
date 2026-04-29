@@ -14,10 +14,8 @@
   },
   "dependencies": {
     "@opensoftware/config": "workspace:*",
-    "@opensoftware/db": "workspace:*",
     "@opensoftware/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.2.1",
-    "better-sqlite3": "^12.6.2",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -28,6 +26,7 @@
     "next-auth": "^5.0.0-beta.30",
     "next-intl": "^4.8.3",
     "next-themes": "^0.4.6",
+    "pg": "^8.20.0",
     "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -38,8 +37,8 @@
   },
   "devDependencies": {
     "@opensoftware/tsconfig": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.0",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.9"

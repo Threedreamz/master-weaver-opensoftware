@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { auth } from "@/lib/auth";
+import { FeedbackFAB } from "@opensoftware/ui";
+import { submitFeedback } from "@/actions/feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <FeedbackFAB onSubmit={submitFeedback} />
     </div>
   );
 }
